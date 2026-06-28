@@ -1,12 +1,14 @@
-# Dustin Photo Sessions
+# Jewells Photo Sessions
 
 A simple private client gallery site for small park photoshoots. It uses Next.js, TypeScript, Tailwind CSS, and Supabase for auth, database records, and private photo storage.
 
 ## What Works
 
-- Public homepage for “Dustin Photo Sessions”
+- Public homepage for "Jewells Photo Sessions"
+- In-website booking order form on the homepage
 - Supabase email/password admin login at `/admin/login`
 - Admin dashboard at `/admin`
+- Admin order list for new website orders
 - Create private client galleries with random hard-to-guess codes
 - Upload multiple images to a private Supabase bucket
 - Copy private gallery links like `/g/ABC123XYZ`
@@ -88,12 +90,14 @@ A simple private client gallery site for small park photoshoots. It uses Next.js
 
 ## How To Use It
 
-1. Sign in at `/admin/login`.
-2. Create a gallery with a title and client name.
-3. Select that gallery in the upload box.
-4. Upload one or more photos.
-5. Copy the private link from the gallery list.
-6. Send that link to the client.
+1. Customers submit booking orders from the homepage.
+2. Sign in at `/admin/login`.
+3. Review new orders at the top of the admin dashboard.
+4. Create a gallery with a title and client name.
+5. Select that gallery in the upload box.
+6. Upload one or more photos.
+7. Copy the private link from the gallery list.
+8. Send that link to the client.
 
 Clients do not need accounts. Anyone with the private link can view that gallery while it is active and not expired.
 
@@ -126,5 +130,5 @@ After deployment, sign in at `/admin`, create a gallery, upload photos, and test
 - Zip-based `Download all`
 - Per-client favorite identity instead of one shared favorite state per gallery
 - Admin photo management screen with thumbnails
-- Real contact form submission or booking calendar
+- Order status controls and booking calendar
 - Email clients their private gallery link automatically

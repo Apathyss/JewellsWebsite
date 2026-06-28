@@ -1,6 +1,6 @@
-import { Camera, Check, Mail, MapPin, Sparkles } from "lucide-react";
+import { Camera, Check, ClipboardList, MapPin, Sparkles } from "lucide-react";
 import { ButtonLink } from "@/components/Button";
-import { Field, TextArea } from "@/components/Field";
+import { OrderForm } from "@/components/OrderForm";
 
 const offers = [
   "Easygoing mini sessions at local parks",
@@ -9,7 +9,7 @@ const offers = [
 ];
 
 const steps = [
-  "Send a quick note with the kind of shoot you have in mind.",
+  "Send an order with the kind of shoot you have in mind.",
   "We pick a park, date, and simple plan that feels comfortable.",
   "After the session, you get a private gallery link for your photos."
 ];
@@ -20,7 +20,7 @@ export default function HomePage() {
       <section className="mx-auto grid min-h-[88vh] max-w-6xl items-center gap-10 px-5 py-12 md:grid-cols-[1.05fr_0.95fr] md:px-8">
         <div className="space-y-7">
           <p className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-sm font-semibold text-leaf shadow-sm">
-            <Camera size={16} /> Dustin Photo Sessions
+            <Camera size={16} /> Jewells Photo Sessions
           </p>
           <div className="space-y-5">
             <h1 className="max-w-3xl text-5xl font-bold leading-tight text-ink sm:text-6xl">
@@ -90,21 +90,13 @@ export default function HomePage() {
       <section id="contact" className="bg-ink py-16 text-white">
         <div className="mx-auto grid max-w-6xl gap-8 px-5 md:grid-cols-[0.9fr_1.1fr] md:px-8">
           <div>
-            <Mail className="mb-4 text-petal" />
-            <h2 className="text-3xl font-bold">Let’s plan something easy.</h2>
+            <ClipboardList className="mb-4 text-petal" />
+            <h2 className="text-3xl font-bold">Let&apos;s plan something easy.</h2>
             <p className="mt-4 leading-7 text-white/76">
-              Tell me the park, the people, and the vibe. I’ll get back to you with a simple next step.
+              Tell me the park, the people, and the vibe. Your order will show up in the admin dashboard.
             </p>
           </div>
-          <form className="grid gap-4 rounded-lg bg-white p-5 text-ink">
-            <Field label="Your name" name="name" placeholder="Jane" />
-            <Field label="Email" name="email" type="email" placeholder="jane@example.com" />
-            <TextArea label="What kind of session are you thinking about?" name="message" />
-            <ButtonLink href="mailto:hello@example.com?subject=Photo%20session%20booking">Email me for now</ButtonLink>
-            <p className="text-sm text-[#6b7780]">
-              This starter form opens email for now. You can connect it to a form service later.
-            </p>
-          </form>
+          <OrderForm />
         </div>
       </section>
     </main>

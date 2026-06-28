@@ -47,7 +47,7 @@ export function GalleryViewer({ gallery, photos }: Props) {
       <main className="min-h-screen px-4 py-6 md:px-8">
         <div className="mx-auto max-w-6xl">
           <header className="mb-6 rounded-lg bg-white p-5 shadow-sm">
-            <p className="text-sm font-semibold text-leaf">Dustin Photo Sessions</p>
+            <p className="text-sm font-semibold text-leaf">Jewells Photo Sessions</p>
             <div className="mt-2 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <h1 className="text-3xl font-bold text-ink">{gallery.title}</h1>

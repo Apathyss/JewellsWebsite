@@ -1,13 +1,14 @@
 "use client";
 
 import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { Copy, ImagePlus, LogOut, Trash2, Upload } from "lucide-react";
+import { ClipboardList, Copy, ImagePlus, LogOut, Trash2, Upload } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/Button";
 import { Field } from "@/components/Field";
 import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
 import { formatDate } from "@/lib/format";
 import type { Gallery } from "@/types/gallery";
+import type { Order } from "@/types/order";
 
 type GalleryWithCount = Gallery & { photoCount: number };
 
@@ -15,6 +16,7 @@ export default function AdminDashboardPage() {
   const router = useRouter();
   const [token, setToken] = useState("");
   const [galleries, setGalleries] = useState<GalleryWithCount[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [title, setTitle] = useState("");
   const [clientName, setClientName] = useState("");
   const [clientEmail, setClientEmail] = useState("");
@@ -23,6 +25,7 @@ export default function AdminDashboardPage() {
   const [selectedFiles, setSelectedFiles] = useState<FileList | null>(null);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
+  const [ordersLoading, setOrdersLoading] = useState(true);
   const [working, setWorking] = useState(false);
 
   const siteUrl = useMemo(() => {
@@ -55,6 +58,20 @@ export default function AdminDashboardPage() {
     setLoading(false);
   }, [apiFetch, router, token]);
 
+  const loadOrders = useCallback(async (accessToken = token) => {
+    setOrdersLoading(true);
+    const response = await apiFetch("/api/admin/orders", {}, accessToken);
+
+    if (response.status === 401 || response.status === 403) {
+      router.replace("/admin/login");
+      return;
+    }
+
+    const payload = (await response.json()) as { orders: Order[] };
+    setOrders(payload.orders || []);
+    setOrdersLoading(false);
+  }, [apiFetch, router, token]);
+
   useEffect(() => {
     const supabase = createBrowserSupabaseClient();
 
@@ -66,8 +83,9 @@ export default function AdminDashboardPage() {
 
       setToken(data.session.access_token);
       loadGalleries(data.session.access_token);
+      loadOrders(data.session.access_token);
     });
-  }, [loadGalleries, router]);
+  }, [loadGalleries, loadOrders, router]);
 
   async function createGallery(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -168,12 +186,22 @@ export default function AdminDashboardPage() {
     setSelectedFiles(event.target.files);
   }
 
+  function formatSubmittedDate(value: string) {
+    return new Intl.DateTimeFormat("en", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit"
+    }).format(new Date(value));
+  }
+
   return (
     <main className="min-h-screen px-5 py-8 md:px-8">
       <div className="mx-auto max-w-6xl">
         <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-sm font-semibold text-leaf">Dustin Photo Sessions</p>
+            <p className="text-sm font-semibold text-leaf">Jewells Photo Sessions</p>
             <h1 className="text-3xl font-bold text-ink">Admin dashboard</h1>
           </div>
           <Button type="button" variant="secondary" onClick={signOut}>
@@ -248,47 +276,90 @@ export default function AdminDashboardPage() {
             </form>
           </div>
 
-          <section className="rounded-lg bg-white p-5 shadow-sm">
-            <h2 className="mb-4 text-xl font-bold text-ink">Galleries</h2>
-            {loading ? <p className="text-[#52616b]">Loading galleries...</p> : null}
-            <div className="grid gap-3">
-              {galleries.map((gallery) => (
-                <article key={gallery.id} className="rounded-lg border border-[#e4e8df] p-4">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                    <div>
-                      <h3 className="font-bold text-ink">{gallery.title}</h3>
-                      <p className="text-sm text-[#52616b]">
-                        {gallery.client_name} {gallery.client_email ? `- ${gallery.client_email}` : ""}
-                      </p>
-                      <p className="mt-1 text-sm text-[#52616b]">
-                        {gallery.photoCount} photos - {gallery.active ? "Active" : "Inactive"} - Expires{" "}
-                        {formatDate(gallery.expires_at)}
-                      </p>
-                      <p className="mt-2 break-all rounded-md bg-[#f6f8f3] px-3 py-2 text-sm text-[#52616b]">
-                        {siteUrl}/g/{gallery.gallery_code}
-                      </p>
+          <div className="space-y-6">
+            <section className="rounded-lg bg-white p-5 shadow-sm">
+              <div className="mb-4 flex items-center gap-2">
+                <ClipboardList className="text-leaf" size={20} />
+                <h2 className="text-xl font-bold text-ink">Orders</h2>
+              </div>
+              {ordersLoading ? <p className="text-[#52616b]">Loading orders...</p> : null}
+              <div className="grid gap-3">
+                {orders.map((order) => (
+                  <article key={order.id} className="rounded-lg border border-[#e4e8df] p-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="font-bold text-ink">{order.name}</h3>
+                          <span className="rounded-full bg-petal px-2 py-0.5 text-xs font-semibold text-ink">
+                            {order.status}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-sm text-[#52616b]">
+                          {order.email}
+                          {order.phone ? ` - ${order.phone}` : ""}
+                        </p>
+                        <p className="mt-1 text-sm text-[#52616b]">
+                          {order.session_type || "Session"} - Preferred date {formatDate(order.preferred_date)}
+                        </p>
+                        {order.location ? <p className="mt-1 text-sm text-[#52616b]">{order.location}</p> : null}
+                      </div>
+                      <p className="text-sm text-[#52616b]">{formatSubmittedDate(order.created_at)}</p>
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                      <Button type="button" variant="secondary" onClick={() => copyLink(gallery.gallery_code)}>
-                        <Copy size={16} /> Copy
-                      </Button>
-                      <Button type="button" variant="secondary" onClick={() => toggleActive(gallery)}>
-                        {gallery.active ? "Make inactive" : "Make active"}
-                      </Button>
-                      <Button type="button" variant="secondary" onClick={() => deleteGallery(gallery)}>
-                        <Trash2 size={16} /> Delete
-                      </Button>
+                    <p className="mt-3 whitespace-pre-wrap rounded-md bg-[#f6f8f3] px-3 py-2 text-sm leading-6 text-[#52616b]">
+                      {order.message}
+                    </p>
+                  </article>
+                ))}
+                {!ordersLoading && orders.length === 0 ? (
+                  <p className="rounded-lg border border-dashed border-[#d8ded3] p-6 text-center text-[#52616b]">
+                    No orders yet. New website orders will appear here.
+                  </p>
+                ) : null}
+              </div>
+            </section>
+
+            <section className="rounded-lg bg-white p-5 shadow-sm">
+              <h2 className="mb-4 text-xl font-bold text-ink">Galleries</h2>
+              {loading ? <p className="text-[#52616b]">Loading galleries...</p> : null}
+              <div className="grid gap-3">
+                {galleries.map((gallery) => (
+                  <article key={gallery.id} className="rounded-lg border border-[#e4e8df] p-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <h3 className="font-bold text-ink">{gallery.title}</h3>
+                        <p className="text-sm text-[#52616b]">
+                          {gallery.client_name} {gallery.client_email ? `- ${gallery.client_email}` : ""}
+                        </p>
+                        <p className="mt-1 text-sm text-[#52616b]">
+                          {gallery.photoCount} photos - {gallery.active ? "Active" : "Inactive"} - Expires{" "}
+                          {formatDate(gallery.expires_at)}
+                        </p>
+                        <p className="mt-2 break-all rounded-md bg-[#f6f8f3] px-3 py-2 text-sm text-[#52616b]">
+                          {siteUrl}/g/{gallery.gallery_code}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Button type="button" variant="secondary" onClick={() => copyLink(gallery.gallery_code)}>
+                          <Copy size={16} /> Copy
+                        </Button>
+                        <Button type="button" variant="secondary" onClick={() => toggleActive(gallery)}>
+                          {gallery.active ? "Make inactive" : "Make active"}
+                        </Button>
+                        <Button type="button" variant="secondary" onClick={() => deleteGallery(gallery)}>
+                          <Trash2 size={16} /> Delete
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                </article>
-              ))}
-              {!loading && galleries.length === 0 ? (
-                <p className="rounded-lg border border-dashed border-[#d8ded3] p-6 text-center text-[#52616b]">
-                  No galleries yet. Create the first one and upload a few photos.
-                </p>
-              ) : null}
-            </div>
-          </section>
+                  </article>
+                ))}
+                {!loading && galleries.length === 0 ? (
+                  <p className="rounded-lg border border-dashed border-[#d8ded3] p-6 text-center text-[#52616b]">
+                    No galleries yet. Create the first one and upload a few photos.
+                  </p>
+                ) : null}
+              </div>
+            </section>
+          </div>
         </div>
       </div>
     </main>

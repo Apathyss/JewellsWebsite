@@ -5,7 +5,7 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Dustin Photo Sessions",
+  title: "Jewells Photo Sessions",
   description: "Simple park photoshoots with private client galleries."
 };
 
