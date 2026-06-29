@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, DragEvent, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ClipboardList, Copy, ImagePlus, LogOut, Trash2, Upload, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/Button";
@@ -26,6 +26,7 @@ export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [ordersLoading, setOrdersLoading] = useState(true);
   const [working, setWorking] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const siteUrl = useMemo(() => {
     if (typeof window === "undefined") return "";
@@ -177,8 +178,8 @@ export default function AdminDashboardPage() {
     setMessage("Private gallery link copied.");
   }
 
-  function onFileChange(event: ChangeEvent<HTMLInputElement>) {
-    const incomingFiles = Array.from(event.target.files || []);
+  function addFiles(files: File[]) {
+    const incomingFiles = files.filter((file) => file.type.startsWith("image/"));
     if (incomingFiles.length === 0) return;
 
     setSelectedFiles((currentFiles) => {
@@ -192,8 +193,17 @@ export default function AdminDashboardPage() {
 
       return [...currentFiles, ...newFiles];
     });
+  }
+
+  function onFileChange(event: ChangeEvent<HTMLInputElement>) {
+    addFiles(Array.from(event.target.files || []));
 
     event.target.value = "";
+  }
+
+  function onPhotoDrop(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    addFiles(Array.from(event.dataTransfer.files || []));
   }
 
   function removeSelectedFile(fileToRemove: File) {
@@ -278,11 +288,26 @@ export default function AdminDashboardPage() {
                     ))}
                   </select>
                 </label>
-                <label className="grid cursor-pointer gap-3 rounded-lg border border-dashed border-[#cbd5c0] bg-[#fbfdf8] p-5 text-center text-sm text-[#52616b]">
+                <div
+                  className="grid gap-3 rounded-lg border border-dashed border-[#cbd5c0] bg-[#fbfdf8] p-5 text-center text-sm text-[#52616b]"
+                  onDragOver={(event) => event.preventDefault()}
+                  onDrop={onPhotoDrop}
+                >
                   <ImagePlus className="mx-auto text-leaf" />
-                  <span>{selectedFiles.length ? `${selectedFiles.length} selected` : "Choose or add photos"}</span>
-                  <input className="sr-only" type="file" accept="image/*" multiple onChange={onFileChange} />
-                </label>
+                  <span>{selectedFiles.length ? `${selectedFiles.length} selected` : "Add photos or drag them here"}</span>
+                  <Button type="button" variant="secondary" onClick={() => fileInputRef.current?.click()}>
+                    Add photos
+                  </Button>
+                  <input
+                    ref={fileInputRef}
+                    className="sr-only"
+                    type="file"
+                    name="photos"
+                    accept="image/*"
+                    multiple={true}
+                    onChange={onFileChange}
+                  />
+                </div>
                 {selectedFiles.length ? (
                   <div className="grid gap-2 rounded-md bg-[#f6f8f3] p-3 text-sm text-[#52616b]">
                     <div className="flex items-center justify-between gap-3">
