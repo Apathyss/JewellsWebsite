@@ -3,7 +3,7 @@ import { ButtonLink } from "@/components/Button";
 import { OrderForm } from "@/components/OrderForm";
 
 const offers = [
-  "A simple home for photos from Creative Images by JC Booking",
+  "A simple home for photos from Creative Images by JC",
   "Private galleries for weddings, couples, families, grads, and events",
   "Easy viewing, favorites, individual downloads, and download-all galleries"
 ];
@@ -27,7 +27,7 @@ export default function HomePage() {
               Capturing the moments you&apos;ll never want to forget
             </h1>
             <p className="max-w-2xl text-lg leading-8 text-[#52616b]">
-              A warm, simple place for clients to find and enjoy photos from Creative Images by JC Booking.
+              A warm, simple place for clients to find and enjoy photos from Creative Images by JC.
               Request a session, receive your private gallery, and download the moments that matter.
             </p>
           </div>

@@ -1,10 +1,10 @@
-# Creative Images by JC Booking
+# Creative Images by JC
 
 A simple private client gallery site for small park photoshoots. It uses Next.js, TypeScript, Tailwind CSS, and Supabase for auth, database records, and private photo storage.
 
 ## What Works
 
-- Public homepage for "Creative Images by JC Booking"
+- Public homepage for "Creative Images by JC"
 - In-website booking order form on the homepage
 - Supabase email/password admin login at `/admin/login`
 - Admin dashboard at `/admin`
