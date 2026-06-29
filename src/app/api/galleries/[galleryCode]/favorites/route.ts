@@ -9,10 +9,10 @@ type Params = {
 
 export async function POST(request: NextRequest, { params }: Params) {
   const supabase = createServiceSupabaseClient();
-  const body = (await request.json()) as { photoId?: string; favorited?: boolean };
+  const body = (await request.json()) as { photoId?: string; clientId?: string };
 
-  if (!body.photoId) {
-    return NextResponse.json({ error: "Photo id is required." }, { status: 400 });
+  if (!body.photoId || !body.clientId) {
+    return NextResponse.json({ error: "Photo id and client id are required." }, { status: 400 });
   }
 
   const { data: gallery, error: galleryError } = await supabase
@@ -40,19 +40,24 @@ export async function POST(request: NextRequest, { params }: Params) {
     return NextResponse.json({ error: "Photo not found." }, { status: 404 });
   }
 
-  if (body.favorited) {
-    const { error } = await supabase
-      .from("favorites")
-      .upsert({ gallery_id: gallery.id, photo_id: body.photoId }, { onConflict: "gallery_id,photo_id" });
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  } else {
-    const { error } = await supabase
-      .from("favorites")
-      .delete()
-      .eq("gallery_id", gallery.id)
-      .eq("photo_id", body.photoId);
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  }
+  const { error } = await supabase.from("favorites").upsert(
+    {
+      gallery_id: gallery.id,
+      photo_id: body.photoId,
+      client_id: body.clientId
+    },
+    { onConflict: "gallery_id,photo_id,client_id", ignoreDuplicates: true }
+  );
 
-  return NextResponse.json({ ok: true });
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  const { count, error: countError } = await supabase
+    .from("favorites")
+    .select("id", { count: "exact", head: true })
+    .eq("gallery_id", gallery.id)
+    .eq("photo_id", body.photoId);
+
+  if (countError) return NextResponse.json({ error: countError.message }, { status: 500 });
+
+  return NextResponse.json({ ok: true, favoriteCount: count || 0 });
 }

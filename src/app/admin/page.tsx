@@ -9,7 +9,7 @@ import { formatDate } from "@/lib/format";
 import type { Gallery } from "@/types/gallery";
 import type { Order } from "@/types/order";
 
-type GalleryWithCount = Gallery & { photoCount: number };
+type GalleryWithCount = Gallery & { photoCount: number; missingPhotoCount?: number };
 
 export default function AdminDashboardPage() {
   const router = useRouter();
@@ -431,7 +431,9 @@ export default function AdminDashboardPage() {
                           {gallery.client_name} {gallery.client_email ? `- ${gallery.client_email}` : ""}
                         </p>
                         <p className="mt-1 text-sm text-[#52616b]">
-                          {gallery.photoCount} photos - {gallery.active ? "Active" : "Inactive"} - Expires{" "}
+                          {gallery.photoCount} photos
+                          {gallery.missingPhotoCount ? ` - ${gallery.missingPhotoCount} missing files` : ""} -{" "}
+                          {gallery.active ? "Active" : "Inactive"} - Expires{" "}
                           {formatDate(gallery.expires_at)}
                         </p>
                         <a

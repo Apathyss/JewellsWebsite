@@ -26,9 +26,14 @@ create table if not exists public.favorites (
   id uuid primary key default gen_random_uuid(),
   photo_id uuid not null references public.photos(id) on delete cascade,
   gallery_id uuid not null references public.galleries(id) on delete cascade,
-  created_at timestamptz not null default now(),
-  unique (gallery_id, photo_id)
+  client_id text not null default 'legacy',
+  created_at timestamptz not null default now()
 );
+
+alter table public.favorites add column if not exists client_id text not null default 'legacy';
+alter table public.favorites drop constraint if exists favorites_gallery_id_photo_id_key;
+alter table public.favorites drop constraint if exists favorites_gallery_id_photo_id_client_id_key;
+alter table public.favorites add constraint favorites_gallery_id_photo_id_client_id_key unique (gallery_id, photo_id, client_id);
 
 create table if not exists public.orders (
   id uuid primary key default gen_random_uuid(),

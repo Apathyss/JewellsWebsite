@@ -48,7 +48,7 @@ export default async function ClientGalleryPage({ params }: PageProps) {
     favoriteCounts.set(favorite.photo_id, (favoriteCounts.get(favorite.photo_id) || 0) + 1);
   }
 
-  const photos: GalleryPhoto[] = await Promise.all(
+  const photosWithUrls: GalleryPhoto[] = await Promise.all(
     (photoRows || []).map(async (photo) => {
       const [{ data: viewData }, { data: downloadData }] = await Promise.all([
         supabase.storage.from(PHOTO_BUCKET).createSignedUrl(photo.storage_path, 60 * 60),
@@ -65,6 +65,7 @@ export default async function ClientGalleryPage({ params }: PageProps) {
       };
     })
   );
+  const photos = photosWithUrls.filter((photo) => photo.viewUrl && photo.downloadUrl);
 
   return <GalleryViewer gallery={gallery} photos={photos} />;
 }

@@ -28,3 +28,50 @@ textarea {
 img {
   max-width: 100%;
 }
+
+.hero-photo-scroll {
+  display: flex;
+  width: 700%;
+  animation: hero-photo-scroll 42s ease-in-out infinite;
+}
+
+.hero-photo-scroll img {
+  width: calc(100% / 7);
+}
+
+@keyframes hero-photo-scroll {
+  0%,
+  12% {
+    transform: translateX(0);
+  }
+
+  16%,
+  28% {
+    transform: translateX(calc(-100% / 7));
+  }
+
+  32%,
+  44% {
+    transform: translateX(calc(-200% / 7));
+  }
+
+  48%,
+  60% {
+    transform: translateX(calc(-300% / 7));
+  }
+
+  64%,
+  76% {
+    transform: translateX(calc(-400% / 7));
+  }
+
+  80%,
+  92% {
+    transform: translateX(calc(-500% / 7));
+  }
+
+  96%,
+  100% {
+    transform: translateX(calc(-600% / 7));
+  }
+}

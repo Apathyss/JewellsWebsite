@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateGalleryCode } from "@/lib/gallery-code";
-import { getSiteUrl, requireAdmin } from "@/lib/supabase/server";
+import { PHOTO_BUCKET, getSiteUrl, requireAdmin } from "@/lib/supabase/server";
 
 export async function GET(request: NextRequest) {
   const admin = await requireAdmin(request);
@@ -8,17 +8,43 @@ export async function GET(request: NextRequest) {
 
   const { data: galleries, error } = await admin.supabase
     .from("galleries")
-    .select("*, photos(id)")
+    .select("*, photos(id, storage_path)")
     .order("created_at", { ascending: false });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+  const galleriesWithCounts = await Promise.all(
+    (galleries || []).map(async (gallery) => {
+      const photoRows = gallery.photos || [];
+      const { data: storageItems, error: storageError } = await admin.supabase.storage
+        .from(PHOTO_BUCKET)
+        .list(gallery.gallery_code, { limit: 1000 });
+
+      if (storageError) {
+        return {
+          ...gallery,
+          photoCount: photoRows.length,
+          missingPhotoCount: 0,
+          photos: undefined
+        };
+      }
+
+      const storagePaths = new Set((storageItems || []).map((item) => `${gallery.gallery_code}/${item.name}`));
+      const availablePhotoCount = photoRows.filter((photo: { storage_path: string }) =>
+        storagePaths.has(photo.storage_path)
+      ).length;
+
+      return {
+        ...gallery,
+        photoCount: availablePhotoCount,
+        missingPhotoCount: Math.max(photoRows.length - availablePhotoCount, 0),
+        photos: undefined
+      };
+    })
+  );
+
   return NextResponse.json({
-    galleries: (galleries || []).map((gallery) => ({
-      ...gallery,
-      photoCount: gallery.photos?.length || 0,
-      photos: undefined
-    }))
+    galleries: galleriesWithCounts
   });
 }
 

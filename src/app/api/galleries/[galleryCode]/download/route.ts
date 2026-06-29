@@ -9,6 +9,24 @@ type Params = {
   };
 };
 
+const DOWNLOAD_CONCURRENCY = 4;
+
+async function mapWithConcurrency<T, R>(items: T[], limit: number, mapper: (item: T, index: number) => Promise<R>) {
+  const results = new Array<R>(items.length);
+  let nextIndex = 0;
+
+  async function worker() {
+    while (nextIndex < items.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      results[index] = await mapper(items[index], index);
+    }
+  }
+
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return results;
+}
+
 export async function GET(_request: NextRequest, { params }: Params) {
   const supabase = createServiceSupabaseClient();
 
@@ -37,17 +55,19 @@ export async function GET(_request: NextRequest, { params }: Params) {
   if (photoError) return NextResponse.json({ error: photoError.message }, { status: 500 });
   if (!photos?.length) return NextResponse.json({ error: "No photos to download." }, { status: 404 });
 
-  const zipFiles = [];
-
-  for (let index = 0; index < photos.length; index += 1) {
-    const photo = photos[index];
+  const downloadedFiles = await mapWithConcurrency(photos, DOWNLOAD_CONCURRENCY, async (photo, index) => {
     const { data, error } = await supabase.storage.from(PHOTO_BUCKET).download(photo.storage_path);
-    if (error || !data) return NextResponse.json({ error: error?.message || "Could not download photo." }, { status: 500 });
+    if (error || !data) return null;
 
-    zipFiles.push({
+    return {
       name: `${String(index + 1).padStart(2, "0")}-${photo.original_filename}`,
       data: new Uint8Array(await data.arrayBuffer())
-    });
+    };
+  });
+
+  const zipFiles = downloadedFiles.filter((file): file is NonNullable<typeof file> => Boolean(file));
+  if (!zipFiles.length) {
+    return NextResponse.json({ error: "No downloadable photos found." }, { status: 404 });
   }
 
   const zip = createZip(zipFiles);

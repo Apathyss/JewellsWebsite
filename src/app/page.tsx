@@ -14,6 +14,17 @@ const steps = [
   "Open your gallery from any device, save favorites, and download your photos."
 ];
 
+const heroPhotos = [
+  "/images/hero-gallery-1.jpg",
+  "/images/hero-gallery-2.jpg",
+  "/images/hero-gallery-3.jpg",
+  "/images/hero-gallery-4.jpg",
+  "/images/hero-gallery-5.jpg",
+  "/images/hero-gallery-6.jpg"
+];
+
+const heroSlides = [...heroPhotos, heroPhotos[0]];
+
 export default function HomePage() {
   return (
     <main>
@@ -40,8 +51,20 @@ export default function HomePage() {
         </div>
 
         <div className="grid gap-3">
-          <div className="aspect-[4/5] overflow-hidden rounded-lg bg-[#dce8d7] shadow-soft">
-            <div className="flex h-full items-end bg-[linear-gradient(145deg,rgba(47,111,78,0.2),rgba(248,217,207,0.65)),url('https://images.unsplash.com/photo-1517457373958-b7bdd4587205?auto=format&fit=crop&w=1100&q=80')] bg-cover bg-center p-5">
+          <div className="relative aspect-[4/5] overflow-hidden rounded-lg bg-[#dce8d7] shadow-soft">
+            <div className="hero-photo-scroll absolute inset-0">
+              {heroSlides.map((photo, index) => (
+                <img
+                  key={`${photo}-${index}`}
+                  className="h-full shrink-0 object-cover"
+                  src={photo}
+                  alt=""
+                  aria-hidden="true"
+                />
+              ))}
+            </div>
+            <div className="absolute inset-0 bg-[linear-gradient(145deg,rgba(47,111,78,0.18),rgba(248,217,207,0.28))]" />
+            <div className="relative flex h-full items-end p-5">
               <div className="rounded-md bg-white/92 p-4 shadow-lg backdrop-blur">
                 <p className="text-sm font-semibold text-ink">Private galleries for every shoot</p>
                 <p className="mt-1 text-sm text-[#52616b]">View, favorite, and download from any phone.</p>
@@ -91,10 +114,10 @@ export default function HomePage() {
         <div className="mx-auto grid max-w-6xl gap-8 px-5 md:grid-cols-[0.9fr_1.1fr] md:px-8">
           <div>
             <ClipboardList className="mb-4 text-petal" />
-            <h2 className="text-3xl font-bold">Looking for your photos?</h2>
+            <h2 className="text-3xl font-bold">Lets Capture Your Story</h2>
             <p className="mt-4 leading-7 text-white/76">
-              Send a note with your name, session details, or the event you attended. We can follow up
-              with the right gallery link or help plan a new session.
+              I&apos;d love to learn more about your vision. Fill out the form below and I&apos;ll be in touch as soon as
+              possible. (I typically respond within 24-48 hours.)
             </p>
           </div>
           <OrderForm />

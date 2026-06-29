@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Download, Heart, ImageOff, X } from "lucide-react";
 import { Button } from "@/components/Button";
 import type { Gallery, GalleryPhoto } from "@/types/gallery";
@@ -12,16 +12,38 @@ type Props = {
 
 export function GalleryViewer({ gallery, photos }: Props) {
   const [activePhoto, setActivePhoto] = useState<GalleryPhoto | null>(null);
-  const [favoriteIds, setFavoriteIds] = useState(() => new Set(photos.filter((photo) => photo.favoriteCount > 0).map((photo) => photo.id)));
+  const [likedIds, setLikedIds] = useState<Set<string>>(() => new Set());
+  const [likeCounts, setLikeCounts] = useState(() => new Map(photos.map((photo) => [photo.id, photo.favoriteCount])));
   const [brokenPreviewIds, setBrokenPreviewIds] = useState(() => new Set(photos.filter((photo) => !photo.viewUrl).map((photo) => photo.id)));
   const [savingId, setSavingId] = useState("");
+  const [clientId, setClientId] = useState("");
 
-  async function toggleFavorite(photo: GalleryPhoto) {
-    const nextFavorited = !favoriteIds.has(photo.id);
-    const nextIds = new Set(favoriteIds);
-    if (nextFavorited) nextIds.add(photo.id);
-    else nextIds.delete(photo.id);
-    setFavoriteIds(nextIds);
+  useEffect(() => {
+    const storageKey = `gallery-likes:${gallery.gallery_code}`;
+    const visitorKey = "gallery-like-client-id";
+    const storedClientId = window.localStorage.getItem(visitorKey) || crypto.randomUUID();
+    window.localStorage.setItem(visitorKey, storedClientId);
+    setClientId(storedClientId);
+
+    try {
+      setLikedIds(new Set(JSON.parse(window.localStorage.getItem(storageKey) || "[]")));
+    } catch {
+      setLikedIds(new Set());
+    }
+  }, [gallery.gallery_code]);
+
+  async function likePhoto(photo: GalleryPhoto) {
+    if (likedIds.has(photo.id) || !clientId) return;
+
+    const storageKey = `gallery-likes:${gallery.gallery_code}`;
+    const nextIds = new Set(likedIds);
+    nextIds.add(photo.id);
+    setLikedIds(nextIds);
+    setLikeCounts((currentCounts) => {
+      const nextCounts = new Map(currentCounts);
+      nextCounts.set(photo.id, (nextCounts.get(photo.id) || 0) + 1);
+      return nextCounts;
+    });
     setSavingId(photo.id);
 
     const response = await fetch(`/api/galleries/${gallery.gallery_code}/favorites`, {
@@ -29,18 +51,34 @@ export function GalleryViewer({ gallery, photos }: Props) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         photoId: photo.id,
-        favorited: nextFavorited
+        clientId
       })
     });
 
     setSavingId("");
 
     if (!response.ok) {
-      const rollbackIds = new Set(nextIds);
-      if (nextFavorited) rollbackIds.delete(photo.id);
-      else rollbackIds.add(photo.id);
-      setFavoriteIds(rollbackIds);
+      nextIds.delete(photo.id);
+      setLikedIds(new Set(nextIds));
+      setLikeCounts((currentCounts) => {
+        const nextCounts = new Map(currentCounts);
+        nextCounts.set(photo.id, Math.max((nextCounts.get(photo.id) || 1) - 1, 0));
+        return nextCounts;
+      });
+      return;
     }
+
+    const payload = (await response.json()) as { favoriteCount?: number };
+    if (typeof payload.favoriteCount === "number") {
+      const favoriteCount = payload.favoriteCount;
+      setLikeCounts((currentCounts) => {
+        const nextCounts = new Map(currentCounts);
+        nextCounts.set(photo.id, favoriteCount);
+        return nextCounts;
+      });
+    }
+
+    window.localStorage.setItem(storageKey, JSON.stringify(Array.from(nextIds)));
   }
 
   return (
@@ -68,7 +106,8 @@ export function GalleryViewer({ gallery, photos }: Props) {
           {photos.length ? (
             <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
               {photos.map((photo) => {
-                const isFavorite = favoriteIds.has(photo.id);
+                const isLiked = likedIds.has(photo.id);
+                const likeCount = likeCounts.get(photo.id) || 0;
 
                 return (
                   <article key={photo.id} className="group overflow-hidden rounded-lg bg-white shadow-sm">
@@ -105,14 +144,15 @@ export function GalleryViewer({ gallery, photos }: Props) {
                     <div className="flex items-center justify-between gap-2 p-2">
                       <button
                         type="button"
-                        className={`inline-flex h-10 w-10 items-center justify-center rounded-md border transition ${
-                          isFavorite ? "border-petal bg-petal text-ink" : "border-[#d8ded3] bg-white text-[#52616b]"
+                        className={`inline-flex h-10 min-w-10 items-center justify-center gap-1 rounded-md border px-2 text-sm font-semibold transition ${
+                          isLiked ? "border-petal bg-petal text-ink" : "border-[#d8ded3] bg-white text-[#52616b]"
                         }`}
-                        onClick={() => toggleFavorite(photo)}
-                        disabled={savingId === photo.id}
-                        aria-label={isFavorite ? "Remove favorite" : "Mark favorite"}
+                        onClick={() => likePhoto(photo)}
+                        disabled={savingId === photo.id || isLiked}
+                        aria-label={isLiked ? `${likeCount} likes` : `Like ${photo.original_filename}`}
                       >
-                        <Heart size={18} fill={isFavorite ? "currentColor" : "none"} />
+                        <Heart size={18} fill={isLiked ? "currentColor" : "none"} />
+                        <span>+{likeCount}</span>
                       </button>
                       <a
                         className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-[#d8ded3] bg-white text-[#52616b] transition hover:bg-[#f6f8f3]"
