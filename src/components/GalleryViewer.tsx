@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Download, Heart, X } from "lucide-react";
+import { Download, Heart, ImageOff, X } from "lucide-react";
 import { Button } from "@/components/Button";
 import type { Gallery, GalleryPhoto } from "@/types/gallery";
 
@@ -13,6 +13,7 @@ type Props = {
 export function GalleryViewer({ gallery, photos }: Props) {
   const [activePhoto, setActivePhoto] = useState<GalleryPhoto | null>(null);
   const [favoriteIds, setFavoriteIds] = useState(() => new Set(photos.filter((photo) => photo.favoriteCount > 0).map((photo) => photo.id)));
+  const [brokenPreviewIds, setBrokenPreviewIds] = useState(() => new Set(photos.filter((photo) => !photo.viewUrl).map((photo) => photo.id)));
   const [savingId, setSavingId] = useState("");
 
   async function toggleFavorite(photo: GalleryPhoto) {
@@ -71,13 +72,31 @@ export function GalleryViewer({ gallery, photos }: Props) {
                       className="block aspect-square w-full overflow-hidden bg-[#e9eee5]"
                       onClick={() => setActivePhoto(photo)}
                       aria-label={`Open ${photo.original_filename}`}
+                      disabled={!photo.viewUrl || brokenPreviewIds.has(photo.id)}
                     >
-                      <img
-                        className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
-                        src={photo.viewUrl}
-                        alt={photo.original_filename}
-                      />
+                      {photo.viewUrl && !brokenPreviewIds.has(photo.id) ? (
+                        <img
+                          className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                          src={photo.viewUrl}
+                          alt={photo.original_filename}
+                          onError={() =>
+                            setBrokenPreviewIds((currentIds) => {
+                              const nextIds = new Set(currentIds);
+                              nextIds.add(photo.id);
+                              return nextIds;
+                            })
+                          }
+                        />
+                      ) : (
+                        <span className="flex h-full flex-col items-center justify-center gap-2 p-3 text-center text-sm text-[#52616b]">
+                          <ImageOff className="text-leaf" size={24} />
+                          Preview unavailable
+                        </span>
+                      )}
                     </button>
+                    <p className="truncate px-2 pt-2 text-xs text-[#52616b]" title={photo.original_filename}>
+                      {photo.original_filename}
+                    </p>
                     <div className="flex items-center justify-between gap-2 p-2">
                       <button
                         type="button"
