@@ -1,10 +1,10 @@
-# Jewells Photo Sessions
+# Creative Images by JC Booking
 
 A simple private client gallery site for small park photoshoots. It uses Next.js, TypeScript, Tailwind CSS, and Supabase for auth, database records, and private photo storage.
 
 ## What Works
 
-- Public homepage for "Jewells Photo Sessions"
+- Public homepage for "Creative Images by JC Booking"
 - In-website booking order form on the homepage
 - Supabase email/password admin login at `/admin/login`
 - Admin dashboard at `/admin`

@@ -253,7 +253,7 @@ export default function AdminDashboardPage() {
       <div className="mx-auto max-w-6xl">
         <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-sm font-semibold text-leaf">Jewells Photo Sessions</p>
+            <p className="text-sm font-semibold text-leaf">Creative Images by JC Booking</p>
             <h1 className="text-3xl font-bold text-ink">Admin dashboard</h1>
           </div>
           <Button type="button" variant="secondary" onClick={signOut}>

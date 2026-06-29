@@ -3,13 +3,13 @@ import { ButtonLink } from "@/components/Button";
 import { OrderForm } from "@/components/OrderForm";
 
 const offers = [
-  "A simple home for photos from Jewell's sessions",
+  "A simple home for photos from Creative Images by JC Booking",
   "Private galleries for weddings, couples, families, grads, and events",
   "Easy viewing, favorites, individual downloads, and download-all galleries"
 ];
 
 const steps = [
-  "Send a quick request or tell Jewell which gallery you are looking for.",
+  "Send a quick request or tell us which gallery you are looking for.",
   "After your photos are ready, you receive a private gallery link.",
   "Open your gallery from any device, save favorites, and download your photos."
 ];
@@ -20,14 +20,14 @@ export default function HomePage() {
       <section className="mx-auto grid min-h-[88vh] max-w-6xl items-center gap-10 px-5 py-12 md:grid-cols-[1.05fr_0.95fr] md:px-8">
         <div className="space-y-7">
           <p className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-sm font-semibold text-leaf shadow-sm">
-            <Camera size={16} /> Jewell&apos;s Portfolio
+            <Camera size={16} /> Creative Images by JC Booking
           </p>
           <div className="space-y-5">
             <h1 className="max-w-3xl text-5xl font-bold leading-tight text-ink sm:text-6xl">
               Your photos, gathered beautifully.
             </h1>
             <p className="max-w-2xl text-lg leading-8 text-[#52616b]">
-              A warm, simple place for clients to find and enjoy photos from Jewell&apos;s shoots.
+              A warm, simple place for clients to find and enjoy photos from Creative Images by JC Booking.
               Request a session, receive your private gallery, and download the moments that matter.
             </p>
           </div>
@@ -93,7 +93,7 @@ export default function HomePage() {
             <ClipboardList className="mb-4 text-petal" />
             <h2 className="text-3xl font-bold">Looking for your photos?</h2>
             <p className="mt-4 leading-7 text-white/76">
-              Send a note with your name, session details, or the event you attended. Jewell can follow up
+              Send a note with your name, session details, or the event you attended. We can follow up
               with the right gallery link or help plan a new session.
             </p>
           </div>
