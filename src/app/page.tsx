@@ -24,7 +24,7 @@ export default function HomePage() {
           </p>
           <div className="space-y-5">
             <h1 className="max-w-3xl text-5xl font-bold leading-tight text-ink sm:text-6xl">
-              Your photos, gathered beautifully.
+              Capturing the moments you&apos;ll never want to forget
             </h1>
             <p className="max-w-2xl text-lg leading-8 text-[#52616b]">
               A warm, simple place for clients to find and enjoy photos from Creative Images by JC Booking.
