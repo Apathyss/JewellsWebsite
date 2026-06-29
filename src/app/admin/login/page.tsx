@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { Camera } from "lucide-react";
 import { Button } from "@/components/Button";
 import { Field } from "@/components/Field";
-import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -19,19 +18,22 @@ export default function AdminLoginPage() {
     setLoading(true);
     setError("");
 
-    const supabase = createBrowserSupabaseClient();
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password
+    const response = await fetch("/api/admin/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password })
     });
 
     setLoading(false);
 
-    if (signInError) {
-      setError(signInError.message);
+    const payload = await response.json();
+
+    if (!response.ok) {
+      setError(payload.error || "Could not sign in.");
       return;
     }
 
+    window.localStorage.setItem("adminAccessToken", payload.accessToken);
     router.push("/admin");
     router.refresh();
   }

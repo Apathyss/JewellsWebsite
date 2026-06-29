@@ -21,25 +21,31 @@ export function OrderForm() {
     setSubmitting(true);
     setNotice("");
 
-    const response = await fetch("/api/orders", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name,
-        email,
-        phone,
-        sessionType,
-        preferredDate: preferredDate || null,
-        location,
-        message
-      })
-    });
+    try {
+      const response = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          email,
+          phone,
+          sessionType,
+          preferredDate: preferredDate || null,
+          location,
+          message
+        })
+      });
 
-    const payload = await response.json();
-    setSubmitting(false);
+      const payload = await response.json();
+      setSubmitting(false);
 
-    if (!response.ok) {
-      setNotice(payload.error || "Could not send your order. Please try again.");
+      if (!response.ok) {
+        setNotice(payload.error || "Could not send your order. Please try again.");
+        return;
+      }
+    } catch (error) {
+      setSubmitting(false);
+      setNotice(error instanceof Error ? error.message : "Could not send your order. Please try again.");
       return;
     }
 

@@ -5,7 +5,6 @@ import { ClipboardList, Copy, ImagePlus, LogOut, Trash2, Upload } from "lucide-r
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/Button";
 import { Field } from "@/components/Field";
-import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
 import { formatDate } from "@/lib/format";
 import type { Gallery } from "@/types/gallery";
 import type { Order } from "@/types/order";
@@ -73,18 +72,15 @@ export default function AdminDashboardPage() {
   }, [apiFetch, router, token]);
 
   useEffect(() => {
-    const supabase = createBrowserSupabaseClient();
+    const accessToken = window.localStorage.getItem("adminAccessToken");
+    if (!accessToken) {
+      router.replace("/admin/login");
+      return;
+    }
 
-    supabase.auth.getSession().then(({ data }) => {
-      if (!data.session?.access_token) {
-        router.replace("/admin/login");
-        return;
-      }
-
-      setToken(data.session.access_token);
-      loadGalleries(data.session.access_token);
-      loadOrders(data.session.access_token);
-    });
+    setToken(accessToken);
+    loadGalleries(accessToken);
+    loadOrders(accessToken);
   }, [loadGalleries, loadOrders, router]);
 
   async function createGallery(event: FormEvent<HTMLFormElement>) {
@@ -171,8 +167,7 @@ export default function AdminDashboardPage() {
   }
 
   async function signOut() {
-    const supabase = createBrowserSupabaseClient();
-    await supabase.auth.signOut();
+    window.localStorage.removeItem("adminAccessToken");
     router.replace("/admin/login");
   }
 
