@@ -5,8 +5,8 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Jewells Photo Sessions",
-  description: "Simple park photoshoots with private client galleries."
+  title: "Jewell's Portfolio",
+  description: "Private photo galleries and session requests for Jewell's clients."
 };
 
 export default function RootLayout({

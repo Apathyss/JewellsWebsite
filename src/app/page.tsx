@@ -1,17 +1,17 @@
-import { Camera, Check, ClipboardList, MapPin, Sparkles } from "lucide-react";
+import { Camera, Check, ClipboardList, Images, Sparkles } from "lucide-react";
 import { ButtonLink } from "@/components/Button";
 import { OrderForm } from "@/components/OrderForm";
 
 const offers = [
-  "Easygoing mini sessions at local parks",
-  "Natural portraits for couples, families, grads, and friends",
-  "A private link where you can view and download your photos"
+  "A simple home for photos from Jewell's sessions",
+  "Private galleries for weddings, couples, families, grads, and events",
+  "Easy viewing, favorites, individual downloads, and download-all galleries"
 ];
 
 const steps = [
-  "Send an order with the kind of shoot you have in mind.",
-  "We pick a park, date, and simple plan that feels comfortable.",
-  "After the session, you get a private gallery link for your photos."
+  "Send a quick request or tell Jewell which gallery you are looking for.",
+  "After your photos are ready, you receive a private gallery link.",
+  "Open your gallery from any device, save favorites, and download your photos."
 ];
 
 export default function HomePage() {
@@ -20,19 +20,19 @@ export default function HomePage() {
       <section className="mx-auto grid min-h-[88vh] max-w-6xl items-center gap-10 px-5 py-12 md:grid-cols-[1.05fr_0.95fr] md:px-8">
         <div className="space-y-7">
           <p className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-sm font-semibold text-leaf shadow-sm">
-            <Camera size={16} /> Jewells Photo Sessions
+            <Camera size={16} /> Jewell&apos;s Portfolio
           </p>
           <div className="space-y-5">
             <h1 className="max-w-3xl text-5xl font-bold leading-tight text-ink sm:text-6xl">
-              Simple park photoshoots
+              Your photos, gathered beautifully.
             </h1>
             <p className="max-w-2xl text-lg leading-8 text-[#52616b]">
-              Friendly, low-pressure photo sessions outside. Come as you are, wander a bit, laugh a lot,
-              and get a private gallery that makes downloading your favorites simple.
+              A warm, simple place for clients to find and enjoy photos from Jewell&apos;s shoots.
+              Request a session, receive your private gallery, and download the moments that matter.
             </p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row">
-            <ButtonLink href="#contact">Book a session</ButtonLink>
+            <ButtonLink href="#contact">Request photos</ButtonLink>
             <ButtonLink href="#how-it-works" variant="secondary">
               See how it works
             </ButtonLink>
@@ -43,7 +43,7 @@ export default function HomePage() {
           <div className="aspect-[4/5] overflow-hidden rounded-lg bg-[#dce8d7] shadow-soft">
             <div className="flex h-full items-end bg-[linear-gradient(145deg,rgba(47,111,78,0.2),rgba(248,217,207,0.65)),url('https://images.unsplash.com/photo-1517457373958-b7bdd4587205?auto=format&fit=crop&w=1100&q=80')] bg-cover bg-center p-5">
               <div className="rounded-md bg-white/92 p-4 shadow-lg backdrop-blur">
-                <p className="text-sm font-semibold text-ink">Private galleries included</p>
+                <p className="text-sm font-semibold text-ink">Private galleries for every shoot</p>
                 <p className="mt-1 text-sm text-[#52616b]">View, favorite, and download from any phone.</p>
               </div>
             </div>
@@ -55,7 +55,7 @@ export default function HomePage() {
         <div className="mx-auto max-w-6xl px-5 md:px-8">
           <div className="mb-8 flex items-center gap-3">
             <Sparkles className="text-leaf" />
-            <h2 className="text-3xl font-bold text-ink">What I offer</h2>
+            <h2 className="text-3xl font-bold text-ink">What you can expect</h2>
           </div>
           <div className="grid gap-4 md:grid-cols-3">
             {offers.map((offer) => (
@@ -71,7 +71,7 @@ export default function HomePage() {
       <section id="how-it-works" className="py-16">
         <div className="mx-auto max-w-6xl px-5 md:px-8">
           <div className="mb-8 flex items-center gap-3">
-            <MapPin className="text-leaf" />
+            <Images className="text-leaf" />
             <h2 className="text-3xl font-bold text-ink">How it works</h2>
           </div>
           <div className="grid gap-4 md:grid-cols-3">
@@ -91,14 +91,21 @@ export default function HomePage() {
         <div className="mx-auto grid max-w-6xl gap-8 px-5 md:grid-cols-[0.9fr_1.1fr] md:px-8">
           <div>
             <ClipboardList className="mb-4 text-petal" />
-            <h2 className="text-3xl font-bold">Let&apos;s plan something easy.</h2>
+            <h2 className="text-3xl font-bold">Looking for your photos?</h2>
             <p className="mt-4 leading-7 text-white/76">
-              Tell me the park, the people, and the vibe. Your order will show up in the admin dashboard.
+              Send a note with your name, session details, or the event you attended. Jewell can follow up
+              with the right gallery link or help plan a new session.
             </p>
           </div>
           <OrderForm />
         </div>
       </section>
+
+      <footer className="bg-ink px-5 pb-6 text-right md:px-8">
+        <a className="text-xs text-white/25 transition hover:text-white/65" href="/admin/login" aria-label="Admin login">
+          .
+        </a>
+      </footer>
     </main>
   );
 }
