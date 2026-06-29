@@ -62,6 +62,11 @@ function assertSupabaseApiUrl(url: string) {
   }
 }
 
+function normalizeSupabaseApiUrl(url: string) {
+  assertSupabaseApiUrl(url);
+  return new URL(url).origin;
+}
+
 export function getSupabaseSetupStatus() {
   const urlEnvName = getSupabaseUrlEnvName();
   const url = getSupabaseUrl();
@@ -88,6 +93,8 @@ export function getSupabaseSetupStatus() {
       found: Boolean(url),
       envName: urlEnvName,
       host: urlHost,
+      path: url ? new URL(url).pathname : null,
+      normalizedUrl: url ? normalizeSupabaseApiUrl(url) : null,
       status: urlStatus,
       problem: urlProblem
     },
@@ -119,9 +126,9 @@ export function createServiceSupabaseClient() {
     );
   }
 
-  assertSupabaseApiUrl(url);
+  const normalizedUrl = normalizeSupabaseApiUrl(url);
 
-  return createClient(url, serviceRoleKey, {
+  return createClient(normalizedUrl, serviceRoleKey, {
     auth: {
       persistSession: false,
       autoRefreshToken: false
@@ -139,9 +146,9 @@ export function createAuthSupabaseClient() {
     );
   }
 
-  assertSupabaseApiUrl(url);
+  const normalizedUrl = normalizeSupabaseApiUrl(url);
 
-  return createClient(url, key, {
+  return createClient(normalizedUrl, key, {
     auth: {
       persistSession: false,
       autoRefreshToken: false
