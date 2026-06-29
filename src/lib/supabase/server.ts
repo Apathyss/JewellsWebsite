@@ -3,16 +3,110 @@ import type { NextRequest } from "next/server";
 
 export const PHOTO_BUCKET = "gallery-photos";
 
+const supabaseUrlEnvNames = ["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_URL", "SUPABASE_PROJECT_URL"] as const;
+const supabaseAnonKeyEnvNames = [
+  "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+  "SUPABASE_ANON_KEY",
+  "SUPABASE_PUBLISHABLE_KEY"
+] as const;
+const supabaseServiceRoleKeyEnvNames = [
+  "SUPABASE_SERVICE_ROLE_KEY",
+  "SUPABASE_SERVICE_KEY",
+  "SUPABASE_SECRET_KEY"
+] as const;
+
+function firstEnvValue(names: readonly string[]) {
+  return names.find((name) => process.env[name]) || null;
+}
+
+function getSupabaseUrlEnvName() {
+  return firstEnvValue(supabaseUrlEnvNames);
+}
+
+function getSupabaseAnonKeyEnvName() {
+  return firstEnvValue(supabaseAnonKeyEnvNames);
+}
+
+function getSupabaseServiceRoleKeyEnvName() {
+  return firstEnvValue(supabaseServiceRoleKeyEnvNames);
+}
+
 function getSupabaseUrl() {
-  return process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || process.env.SUPABASE_PROJECT_URL;
+  const envName = getSupabaseUrlEnvName();
+  return envName ? process.env[envName] : undefined;
 }
 
 function getSupabaseAnonKey() {
-  return process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_PUBLISHABLE_KEY;
+  const envName = getSupabaseAnonKeyEnvName();
+  return envName ? process.env[envName] : undefined;
 }
 
 function getSupabaseServiceRoleKey() {
-  return process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SECRET_KEY;
+  const envName = getSupabaseServiceRoleKeyEnvName();
+  return envName ? process.env[envName] : undefined;
+}
+
+function assertSupabaseApiUrl(url: string) {
+  let parsed: URL;
+
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new Error("Supabase URL is not a valid URL. It should look like https://your-project-ref.supabase.co");
+  }
+
+  if (parsed.protocol !== "https:" || !parsed.hostname.endsWith(".supabase.co")) {
+    throw new Error(
+      "Supabase URL is wrong. Use the API URL that looks like https://your-project-ref.supabase.co, not a Postgres/database URL."
+    );
+  }
+}
+
+export function getSupabaseSetupStatus() {
+  const urlEnvName = getSupabaseUrlEnvName();
+  const url = getSupabaseUrl();
+  const anonKeyEnvName = getSupabaseAnonKeyEnvName();
+  const serviceRoleKeyEnvName = getSupabaseServiceRoleKeyEnvName();
+  let urlStatus = "missing";
+  let urlHost: string | null = null;
+  let urlProblem: string | null = null;
+
+  if (url) {
+    try {
+      const parsed = new URL(url);
+      urlHost = parsed.host;
+      assertSupabaseApiUrl(url);
+      urlStatus = "valid";
+    } catch (error) {
+      urlStatus = "invalid";
+      urlProblem = error instanceof Error ? error.message : "Supabase URL is invalid.";
+    }
+  }
+
+  return {
+    supabaseUrl: {
+      found: Boolean(url),
+      envName: urlEnvName,
+      host: urlHost,
+      status: urlStatus,
+      problem: urlProblem
+    },
+    anonKey: {
+      found: Boolean(getSupabaseAnonKey()),
+      envName: anonKeyEnvName
+    },
+    serviceRoleKey: {
+      found: Boolean(getSupabaseServiceRoleKey()),
+      envName: serviceRoleKeyEnvName
+    },
+    adminEmail: {
+      found: Boolean(process.env.ADMIN_EMAIL)
+    },
+    siteUrl: {
+      found: Boolean(process.env.NEXT_PUBLIC_SITE_URL),
+      value: process.env.NEXT_PUBLIC_SITE_URL || null
+    }
+  };
 }
 
 export function createServiceSupabaseClient() {
@@ -24,6 +118,8 @@ export function createServiceSupabaseClient() {
       "Missing Supabase server environment variables. Need SUPABASE_URL or NEXT_PUBLIC_SUPABASE_URL, plus SUPABASE_SERVICE_ROLE_KEY."
     );
   }
+
+  assertSupabaseApiUrl(url);
 
   return createClient(url, serviceRoleKey, {
     auth: {
@@ -42,6 +138,8 @@ export function createAuthSupabaseClient() {
       "Missing Supabase auth environment variables. Need SUPABASE_URL or NEXT_PUBLIC_SUPABASE_URL, plus SUPABASE_ANON_KEY or NEXT_PUBLIC_SUPABASE_ANON_KEY."
     );
   }
+
+  assertSupabaseApiUrl(url);
 
   return createClient(url, key, {
     auth: {
