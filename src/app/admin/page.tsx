@@ -117,6 +117,34 @@ export default function AdminDashboardPage() {
     await loadGalleries();
   }
 
+  async function createGalleryFromOrder(order: Order) {
+    setWorking(true);
+    setMessage("");
+
+    const response = await apiFetch("/api/admin/galleries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: `${order.name} Shoots`,
+        clientName: order.name,
+        clientEmail: order.email,
+        expiresAt: null
+      })
+    });
+
+    const payload = await response.json();
+    setWorking(false);
+
+    if (!response.ok) {
+      setMessage(payload.error || "Could not create gallery from order.");
+      return;
+    }
+
+    setSelectedGalleryId(payload.gallery.id);
+    setMessage(`Gallery created for ${order.name}.`);
+    await loadGalleries();
+  }
+
   async function uploadPhotos(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selectedGalleryId || selectedFiles.length === 0) return;
@@ -370,7 +398,12 @@ export default function AdminDashboardPage() {
                         </p>
                         {order.location ? <p className="mt-1 text-sm text-[#52616b]">{order.location}</p> : null}
                       </div>
-                      <p className="text-sm text-[#52616b]">{formatSubmittedDate(order.created_at)}</p>
+                      <div className="flex flex-col items-start gap-2 sm:items-end">
+                        <p className="text-sm text-[#52616b]">{formatSubmittedDate(order.created_at)}</p>
+                        <Button type="button" variant="secondary" onClick={() => createGalleryFromOrder(order)} disabled={working}>
+                          Create gallery
+                        </Button>
+                      </div>
                     </div>
                     <p className="mt-3 whitespace-pre-wrap rounded-md bg-[#f6f8f3] px-3 py-2 text-sm leading-6 text-[#52616b]">
                       {order.message}
@@ -401,9 +434,14 @@ export default function AdminDashboardPage() {
                           {gallery.photoCount} photos - {gallery.active ? "Active" : "Inactive"} - Expires{" "}
                           {formatDate(gallery.expires_at)}
                         </p>
-                        <p className="mt-2 break-all rounded-md bg-[#f6f8f3] px-3 py-2 text-sm text-[#52616b]">
+                        <a
+                          className="mt-2 block break-all rounded-md bg-[#f6f8f3] px-3 py-2 text-sm font-semibold text-leaf transition hover:bg-[#eef3e9]"
+                          href={`${siteUrl}/g/${gallery.gallery_code}`}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
                           {siteUrl}/g/{gallery.gallery_code}
-                        </p>
+                        </a>
                       </div>
                       <div className="flex flex-wrap gap-2">
                         <Button type="button" variant="secondary" onClick={() => copyLink(gallery.gallery_code)}>

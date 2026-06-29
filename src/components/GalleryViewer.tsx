@@ -54,9 +54,14 @@ export function GalleryViewer({ gallery, photos }: Props) {
                 <h1 className="text-3xl font-bold text-ink">{gallery.title}</h1>
                 <p className="mt-1 text-[#52616b]">{gallery.client_name}</p>
               </div>
-              <div className="rounded-md bg-[#f6f8f3] px-3 py-2 text-sm text-[#52616b]">
-                Download all is coming next. For now, use each photo&apos;s download button.
-              </div>
+              {photos.length ? (
+                <a
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-leaf px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#285f43]"
+                  href={`/api/galleries/${gallery.gallery_code}/download`}
+                >
+                  <Download size={18} /> Download all
+                </a>
+              ) : null}
             </div>
           </header>
 
