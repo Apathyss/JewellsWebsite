@@ -1,7 +1,7 @@
 "use client";
 
 import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { ClipboardList, Copy, ImagePlus, LogOut, Trash2, Upload } from "lucide-react";
+import { ClipboardList, Copy, ImagePlus, LogOut, Trash2, Upload, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/Button";
 import { Field } from "@/components/Field";
@@ -21,7 +21,7 @@ export default function AdminDashboardPage() {
   const [clientEmail, setClientEmail] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
   const [selectedGalleryId, setSelectedGalleryId] = useState("");
-  const [selectedFiles, setSelectedFiles] = useState<FileList | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [ordersLoading, setOrdersLoading] = useState(true);
@@ -118,12 +118,12 @@ export default function AdminDashboardPage() {
 
   async function uploadPhotos(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!selectedGalleryId || !selectedFiles?.length) return;
+    if (!selectedGalleryId || selectedFiles.length === 0) return;
 
     setWorking(true);
     setMessage("");
     const body = new FormData();
-    Array.from(selectedFiles).forEach((file) => body.append("photos", file));
+    selectedFiles.forEach((file) => body.append("photos", file));
 
     const response = await apiFetch(`/api/admin/galleries/${selectedGalleryId}/photos`, {
       method: "POST",
@@ -137,7 +137,7 @@ export default function AdminDashboardPage() {
       return;
     }
 
-    setSelectedFiles(null);
+    setSelectedFiles([]);
     setMessage(`Uploaded ${payload.count} photo${payload.count === 1 ? "" : "s"}.`);
     await loadGalleries();
   }
@@ -178,7 +178,26 @@ export default function AdminDashboardPage() {
   }
 
   function onFileChange(event: ChangeEvent<HTMLInputElement>) {
-    setSelectedFiles(event.target.files);
+    const incomingFiles = Array.from(event.target.files || []);
+    if (incomingFiles.length === 0) return;
+
+    setSelectedFiles((currentFiles) => {
+      const existingFileKeys = new Set(
+        currentFiles.map((file) => `${file.name}-${file.size}-${file.lastModified}`)
+      );
+      const newFiles = incomingFiles.filter((file) => {
+        const key = `${file.name}-${file.size}-${file.lastModified}`;
+        return !existingFileKeys.has(key);
+      });
+
+      return [...currentFiles, ...newFiles];
+    });
+
+    event.target.value = "";
+  }
+
+  function removeSelectedFile(fileToRemove: File) {
+    setSelectedFiles((currentFiles) => currentFiles.filter((file) => file !== fileToRemove));
   }
 
   function formatSubmittedDate(value: string) {
@@ -261,10 +280,38 @@ export default function AdminDashboardPage() {
                 </label>
                 <label className="grid cursor-pointer gap-3 rounded-lg border border-dashed border-[#cbd5c0] bg-[#fbfdf8] p-5 text-center text-sm text-[#52616b]">
                   <ImagePlus className="mx-auto text-leaf" />
-                  <span>{selectedFiles?.length ? `${selectedFiles.length} selected` : "Choose multiple photos"}</span>
+                  <span>{selectedFiles.length ? `${selectedFiles.length} selected` : "Choose or add photos"}</span>
                   <input className="sr-only" type="file" accept="image/*" multiple onChange={onFileChange} />
                 </label>
-                <Button type="submit" disabled={working || !selectedGalleryId || !selectedFiles?.length}>
+                {selectedFiles.length ? (
+                  <div className="grid gap-2 rounded-md bg-[#f6f8f3] p-3 text-sm text-[#52616b]">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="font-semibold text-ink">{selectedFiles.length} photo{selectedFiles.length === 1 ? "" : "s"} ready</span>
+                      <Button type="button" variant="secondary" onClick={() => setSelectedFiles([])}>
+                        Clear
+                      </Button>
+                    </div>
+                    <div className="grid max-h-36 gap-2 overflow-auto">
+                      {selectedFiles.map((file) => (
+                        <div
+                          key={`${file.name}-${file.size}-${file.lastModified}`}
+                          className="flex items-center justify-between gap-3 rounded-md bg-white px-3 py-2"
+                        >
+                          <span className="truncate">{file.name}</span>
+                          <button
+                            type="button"
+                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-[#52616b] transition hover:bg-[#eef3e9] hover:text-ink"
+                            aria-label={`Remove ${file.name}`}
+                            onClick={() => removeSelectedFile(file)}
+                          >
+                            <X size={16} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+                <Button type="submit" disabled={working || !selectedGalleryId || selectedFiles.length === 0}>
                   <Upload size={18} /> Upload selected photos
                 </Button>
               </div>
