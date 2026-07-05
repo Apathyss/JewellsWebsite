@@ -10,6 +10,10 @@ import type { Gallery } from "@/types/gallery";
 import type { Order } from "@/types/order";
 
 type GalleryWithCount = Gallery & { photoCount: number; missingPhotoCount?: number };
+type UploadPhase = "idle" | "optimizing" | "sending" | "processing";
+
+const OPTIMIZED_IMAGE_MAX_DIMENSION = 2200;
+const OPTIMIZED_IMAGE_QUALITY = 0.82;
 
 export default function AdminDashboardPage() {
   const router = useRouter();
@@ -26,6 +30,9 @@ export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [ordersLoading, setOrdersLoading] = useState(true);
   const [working, setWorking] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadPhase, setUploadPhase] = useState<UploadPhase>("idle");
+  const [optimizeUploads, setOptimizeUploads] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const siteUrl = useMemo(() => {
@@ -151,22 +158,73 @@ export default function AdminDashboardPage() {
 
     setWorking(true);
     setMessage("");
+    setUploadProgress(0);
+
+    let uploadFiles = selectedFiles;
+    if (optimizeUploads) {
+      setUploadPhase("optimizing");
+      const optimizedFiles = [];
+
+      try {
+        for (let index = 0; index < selectedFiles.length; index += 1) {
+          optimizedFiles.push(await optimizeImageFile(selectedFiles[index]));
+          setUploadProgress(Math.round(((index + 1) / selectedFiles.length) * 100));
+        }
+      } catch (error) {
+        setWorking(false);
+        setUploadPhase("idle");
+        setUploadProgress(0);
+        setMessage(error instanceof Error ? error.message : "Could not optimize photos.");
+        return;
+      }
+
+      uploadFiles = optimizedFiles;
+    }
+
+    setUploadProgress(0);
+    setUploadPhase("sending");
     const body = new FormData();
-    selectedFiles.forEach((file) => body.append("photos", file));
+    uploadFiles.forEach((file) => body.append("photos", file));
 
-    const response = await apiFetch(`/api/admin/galleries/${selectedGalleryId}/photos`, {
-      method: "POST",
-      body
+    const { ok, payload } = await new Promise<{ ok: boolean; payload: { count?: number; error?: string } }>((resolve) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", `/api/admin/galleries/${selectedGalleryId}/photos`);
+      xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+
+      xhr.upload.onprogress = (progressEvent) => {
+        if (!progressEvent.lengthComputable) return;
+
+        const progress = Math.round((progressEvent.loaded / progressEvent.total) * 100);
+        setUploadProgress(progress);
+        if (progress >= 100) setUploadPhase("processing");
+      };
+
+      xhr.onload = () => {
+        let payload: { count?: number; error?: string } = {};
+        try {
+          payload = JSON.parse(xhr.responseText);
+        } catch {
+          payload = {};
+        }
+
+        resolve({ ok: xhr.status >= 200 && xhr.status < 300, payload });
+      };
+
+      xhr.onerror = () => resolve({ ok: false, payload: { error: "Upload failed. Check your connection and try again." } });
+      xhr.send(body);
     });
-    const payload = await response.json();
-    setWorking(false);
 
-    if (!response.ok) {
+    setWorking(false);
+    setUploadPhase("idle");
+
+    if (!ok) {
       setMessage(payload.error || "Could not upload photos.");
+      setUploadProgress(0);
       return;
     }
 
     setSelectedFiles([]);
+    setUploadProgress(100);
     setMessage(`Uploaded ${payload.count} photo${payload.count === 1 ? "" : "s"}.`);
     await loadGalleries();
   }
@@ -208,7 +266,7 @@ export default function AdminDashboardPage() {
 
   function addFiles(files: File[]) {
     const incomingFiles = files.filter((file) => file.type.startsWith("image/"));
-    if (incomingFiles.length === 0) return;
+    if (incomingFiles.length === 0 || working) return;
 
     setSelectedFiles((currentFiles) => {
       const existingFileKeys = new Set(
@@ -235,7 +293,20 @@ export default function AdminDashboardPage() {
   }
 
   function removeSelectedFile(fileToRemove: File) {
+    if (working) return;
     setSelectedFiles((currentFiles) => currentFiles.filter((file) => file !== fileToRemove));
+  }
+
+  const selectedUploadSize = useMemo(
+    () => selectedFiles.reduce((totalBytes, file) => totalBytes + file.size, 0),
+    [selectedFiles]
+  );
+
+  function formatFileSize(bytes: number) {
+    if (bytes === 0) return "0 MB";
+    const megabytes = bytes / 1024 / 1024;
+    if (megabytes < 1024) return `${megabytes.toFixed(megabytes >= 10 ? 0 : 1)} MB`;
+    return `${(megabytes / 1024).toFixed(1)} GB`;
   }
 
   function formatSubmittedDate(value: string) {
@@ -323,7 +394,7 @@ export default function AdminDashboardPage() {
                 >
                   <ImagePlus className="mx-auto text-leaf" />
                   <span>{selectedFiles.length ? `${selectedFiles.length} selected` : "Add photos or drag them here"}</span>
-                  <Button type="button" variant="secondary" onClick={() => fileInputRef.current?.click()}>
+                  <Button type="button" variant="secondary" onClick={() => fileInputRef.current?.click()} disabled={working}>
                     Add photos
                   </Button>
                   <input
@@ -339,8 +410,11 @@ export default function AdminDashboardPage() {
                 {selectedFiles.length ? (
                   <div className="grid gap-2 rounded-md bg-[#f6f8f3] p-3 text-sm text-[#52616b]">
                     <div className="flex items-center justify-between gap-3">
-                      <span className="font-semibold text-ink">{selectedFiles.length} photo{selectedFiles.length === 1 ? "" : "s"} ready</span>
-                      <Button type="button" variant="secondary" onClick={() => setSelectedFiles([])}>
+                      <span className="font-semibold text-ink">
+                        {selectedFiles.length} photo{selectedFiles.length === 1 ? "" : "s"} ready -{" "}
+                        {formatFileSize(selectedUploadSize)}
+                      </span>
+                      <Button type="button" variant="secondary" onClick={() => setSelectedFiles([])} disabled={working}>
                         Clear
                       </Button>
                     </div>
@@ -364,6 +438,48 @@ export default function AdminDashboardPage() {
                     </div>
                   </div>
                 ) : null}
+                {working && uploadPhase !== "idle" ? (
+                  <div className="grid gap-2 rounded-md border border-[#d8ded3] bg-white p-3">
+                    <div className="flex items-center justify-between gap-3 text-sm font-semibold text-ink">
+                      <span>
+                        {uploadPhase === "optimizing"
+                          ? "Optimizing photos"
+                          : uploadPhase === "sending"
+                            ? "Uploading photos"
+                            : "Finishing upload"}
+                      </span>
+                      <span>{uploadProgress}%</span>
+                    </div>
+                    <div className="h-3 overflow-hidden rounded-full bg-[#e7ece2]">
+                      <div
+                        className="h-full rounded-full bg-leaf transition-[width] duration-300"
+                        style={{ width: `${uploadProgress}%` }}
+                      />
+                    </div>
+                    <p className="text-xs leading-5 text-[#52616b]">
+                      {uploadPhase === "optimizing"
+                        ? "Making smaller upload copies to save storage."
+                        : uploadPhase === "sending"
+                          ? "Sending files from your browser."
+                          : "Files reached the site. Saving them to private storage now."}
+                    </p>
+                  </div>
+                ) : null}
+                <label className="flex items-start gap-3 rounded-md bg-[#f6f8f3] p-3 text-sm text-[#52616b]">
+                  <input
+                    className="mt-1 h-4 w-4 accent-leaf"
+                    type="checkbox"
+                    checked={optimizeUploads}
+                    onChange={(event) => setOptimizeUploads(event.target.checked)}
+                    disabled={working}
+                  />
+                  <span>
+                    <span className="block font-semibold text-ink">Optimize photos before upload</span>
+                    <span className="block leading-5">
+                      Saves storage and uploads faster. Turn this off when you need full-size originals.
+                    </span>
+                  </span>
+                </label>
                 <Button type="submit" disabled={working || !selectedGalleryId || selectedFiles.length === 0}>
                   <Upload size={18} /> Upload selected photos
                 </Button>
@@ -471,4 +587,58 @@ export default function AdminDashboardPage() {
       </div>
     </main>
   );
+}
+
+async function optimizeImageFile(file: File) {
+  if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) return file;
+
+  const image = await loadImage(file);
+  const scale = Math.min(1, OPTIMIZED_IMAGE_MAX_DIMENSION / Math.max(image.naturalWidth, image.naturalHeight));
+  if (scale === 1 && file.type === "image/jpeg" && file.size < 1.5 * 1024 * 1024) {
+    URL.revokeObjectURL(image.src);
+    return file;
+  }
+
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+  canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+
+  const context = canvas.getContext("2d");
+  if (!context) {
+    URL.revokeObjectURL(image.src);
+    return file;
+  }
+
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+  const blob = await canvasToBlob(canvas);
+  URL.revokeObjectURL(image.src);
+
+  if (!blob || blob.size >= file.size) return file;
+
+  const optimizedName = file.name.replace(/\.[^.]+$/, "") || "photo";
+  return new File([blob], `${optimizedName}.jpg`, {
+    type: "image/jpeg",
+    lastModified: file.lastModified
+  });
+}
+
+function loadImage(file: File) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    const objectUrl = URL.createObjectURL(file);
+
+    image.onload = () => resolve(image);
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error(`Could not optimize ${file.name}.`));
+    };
+
+    image.src = objectUrl;
+  });
+}
+
+function canvasToBlob(canvas: HTMLCanvasElement) {
+  return new Promise<Blob | null>((resolve) => {
+    canvas.toBlob(resolve, "image/jpeg", OPTIMIZED_IMAGE_QUALITY);
+  });
 }

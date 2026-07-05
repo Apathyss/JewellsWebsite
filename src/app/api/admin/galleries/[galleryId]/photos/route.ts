@@ -7,6 +7,24 @@ type Params = {
   };
 };
 
+const STORAGE_UPLOAD_CONCURRENCY = 3;
+
+async function mapWithConcurrency<T, R>(items: T[], limit: number, mapper: (item: T, index: number) => Promise<R>) {
+  const results = new Array<R>(items.length);
+  let nextIndex = 0;
+
+  async function worker() {
+    while (nextIndex < items.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      results[index] = await mapper(items[index], index);
+    }
+  }
+
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return results;
+}
+
 export async function POST(request: NextRequest, { params }: Params) {
   const admin = await requireAdmin(request);
   if ("error" in admin) return NextResponse.json({ error: admin.error }, { status: admin.status });
@@ -28,11 +46,13 @@ export async function POST(request: NextRequest, { params }: Params) {
     return NextResponse.json({ error: "Choose at least one photo to upload." }, { status: 400 });
   }
 
-  const uploadedRows = [];
+  const imageFiles = files.filter((file) => file.type.startsWith("image/"));
 
-  for (const file of files) {
-    if (!file.type.startsWith("image/")) continue;
+  if (!imageFiles.length) {
+    return NextResponse.json({ error: "Only image files can be uploaded." }, { status: 400 });
+  }
 
+  const uploadedRows = await mapWithConcurrency(imageFiles, STORAGE_UPLOAD_CONCURRENCY, async (file) => {
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "-");
     const storagePath = `${gallery.gallery_code}/${crypto.randomUUID()}-${safeName}`;
 
@@ -44,18 +64,21 @@ export async function POST(request: NextRequest, { params }: Params) {
       });
 
     if (uploadError) {
-      return NextResponse.json({ error: uploadError.message }, { status: 500 });
+      throw new Error(uploadError.message);
     }
 
-    uploadedRows.push({
+    return {
       gallery_id: gallery.id,
       storage_path: storagePath,
       original_filename: file.name
-    });
-  }
+    };
+  }).catch((error) => {
+    const message = error instanceof Error ? error.message : "Could not upload photos.";
+    return message;
+  });
 
-  if (!uploadedRows.length) {
-    return NextResponse.json({ error: "Only image files can be uploaded." }, { status: 400 });
+  if (typeof uploadedRows === "string") {
+    return NextResponse.json({ error: uploadedRows }, { status: 500 });
   }
 
   const { error } = await admin.supabase.from("photos").insert(uploadedRows);
