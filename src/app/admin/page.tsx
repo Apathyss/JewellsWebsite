@@ -12,8 +12,9 @@ import type { Order } from "@/types/order";
 type GalleryWithCount = Gallery & { photoCount: number; missingPhotoCount?: number };
 type UploadPhase = "idle" | "optimizing" | "sending" | "processing";
 
-const OPTIMIZED_IMAGE_MAX_DIMENSION = 2200;
-const OPTIMIZED_IMAGE_QUALITY = 0.82;
+const OPTIMIZED_IMAGE_MAX_DIMENSION = 1800;
+const OPTIMIZED_IMAGE_QUALITY = 0.76;
+const MAX_UPLOAD_BATCH_BYTES = 3.5 * 1024 * 1024;
 
 export default function AdminDashboardPage() {
   const router = useRouter();
@@ -183,49 +184,47 @@ export default function AdminDashboardPage() {
 
     setUploadProgress(0);
     setUploadPhase("sending");
-    const body = new FormData();
-    uploadFiles.forEach((file) => body.append("photos", file));
+    const uploadBatches = createUploadBatches(uploadFiles);
+    const uploadTotalBytes = uploadFiles.reduce((totalBytes, file) => totalBytes + file.size, 0);
+    let uploadedBytesBeforeBatch = 0;
+    let uploadedCount = 0;
 
-    const { ok, payload } = await new Promise<{ ok: boolean; payload: { count?: number; error?: string } }>((resolve) => {
-      const xhr = new XMLHttpRequest();
-      xhr.open("POST", `/api/admin/galleries/${selectedGalleryId}/photos`);
-      xhr.setRequestHeader("Authorization", `Bearer ${token}`);
-
-      xhr.upload.onprogress = (progressEvent) => {
-        if (!progressEvent.lengthComputable) return;
-
-        const progress = Math.round((progressEvent.loaded / progressEvent.total) * 100);
-        setUploadProgress(progress);
-        if (progress >= 100) setUploadPhase("processing");
-      };
-
-      xhr.onload = () => {
-        let payload: { count?: number; error?: string } = {};
-        try {
-          payload = JSON.parse(xhr.responseText);
-        } catch {
-          payload = {};
+    for (let batchIndex = 0; batchIndex < uploadBatches.length; batchIndex += 1) {
+      const batch = uploadBatches[batchIndex];
+      const batchBytes = batch.reduce((totalBytes, file) => totalBytes + file.size, 0);
+      const { ok, payload } = await uploadPhotoBatch({
+        batch,
+        galleryId: selectedGalleryId,
+        token,
+        onProgress: (loadedBytes) => {
+          const totalLoadedBytes = Math.min(uploadedBytesBeforeBatch + loadedBytes, uploadTotalBytes);
+          setUploadProgress(Math.round((totalLoadedBytes / uploadTotalBytes) * 100));
+          if (loadedBytes >= batchBytes) setUploadPhase("processing");
         }
+      });
 
-        resolve({ ok: xhr.status >= 200 && xhr.status < 300, payload });
-      };
+      if (!ok) {
+        setWorking(false);
+        setUploadPhase("idle");
+        setUploadProgress(0);
+        setMessage(payload.error || `Could not upload batch ${batchIndex + 1} of ${uploadBatches.length}.`);
+        return;
+      }
 
-      xhr.onerror = () => resolve({ ok: false, payload: { error: "Upload failed. Check your connection and try again." } });
-      xhr.send(body);
-    });
+      uploadedBytesBeforeBatch += batchBytes;
+      uploadedCount += payload.count || 0;
+
+      if (batchIndex < uploadBatches.length - 1) {
+        setUploadPhase("sending");
+      }
+    }
 
     setWorking(false);
     setUploadPhase("idle");
 
-    if (!ok) {
-      setMessage(payload.error || "Could not upload photos.");
-      setUploadProgress(0);
-      return;
-    }
-
     setSelectedFiles([]);
     setUploadProgress(100);
-    setMessage(`Uploaded ${payload.count} photo${payload.count === 1 ? "" : "s"}.`);
+    setMessage(`Uploaded ${uploadedCount} photo${uploadedCount === 1 ? "" : "s"}.`);
     await loadGalleries();
   }
 
@@ -460,7 +459,7 @@ export default function AdminDashboardPage() {
                       {uploadPhase === "optimizing"
                         ? "Making smaller upload copies to save storage."
                         : uploadPhase === "sending"
-                          ? "Sending files from your browser."
+                          ? "Sending files in smaller batches."
                           : "Files reached the site. Saving them to private storage now."}
                     </p>
                   </div>
@@ -619,6 +618,66 @@ async function optimizeImageFile(file: File) {
   return new File([blob], `${optimizedName}.jpg`, {
     type: "image/jpeg",
     lastModified: file.lastModified
+  });
+}
+
+function createUploadBatches(files: File[]) {
+  const batches: File[][] = [];
+  let currentBatch: File[] = [];
+  let currentBatchBytes = 0;
+
+  for (const file of files) {
+    const wouldExceedBatch = currentBatch.length > 0 && currentBatchBytes + file.size > MAX_UPLOAD_BATCH_BYTES;
+    if (wouldExceedBatch) {
+      batches.push(currentBatch);
+      currentBatch = [];
+      currentBatchBytes = 0;
+    }
+
+    currentBatch.push(file);
+    currentBatchBytes += file.size;
+  }
+
+  if (currentBatch.length > 0) batches.push(currentBatch);
+  return batches;
+}
+
+function uploadPhotoBatch({
+  batch,
+  galleryId,
+  token,
+  onProgress
+}: {
+  batch: File[];
+  galleryId: string;
+  token: string;
+  onProgress: (loadedBytes: number) => void;
+}) {
+  const body = new FormData();
+  batch.forEach((file) => body.append("photos", file));
+
+  return new Promise<{ ok: boolean; payload: { count?: number; error?: string } }>((resolve) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `/api/admin/galleries/${galleryId}/photos`);
+    xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+
+    xhr.upload.onprogress = (progressEvent) => {
+      if (progressEvent.lengthComputable) onProgress(progressEvent.loaded);
+    };
+
+    xhr.onload = () => {
+      let payload: { count?: number; error?: string } = {};
+      try {
+        payload = JSON.parse(xhr.responseText);
+      } catch {
+        payload = {};
+      }
+
+      resolve({ ok: xhr.status >= 200 && xhr.status < 300, payload });
+    };
+
+    xhr.onerror = () => resolve({ ok: false, payload: { error: "Upload failed. Check your connection and try again." } });
+    xhr.send(body);
   });
 }
 

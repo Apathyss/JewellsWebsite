@@ -82,7 +82,10 @@ export async function POST(request: NextRequest, { params }: Params) {
   }
 
   const { error } = await admin.supabase.from("photos").insert(uploadedRows);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    await admin.supabase.storage.from(PHOTO_BUCKET).remove(uploadedRows.map((row) => row.storage_path));
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 
   return NextResponse.json({ count: uploadedRows.length });
 }
