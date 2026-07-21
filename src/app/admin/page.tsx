@@ -1,7 +1,7 @@
 "use client";
 
 import { ChangeEvent, DragEvent, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ClipboardList, Copy, ImagePlus, LogOut, Trash2, Upload, X } from "lucide-react";
+import { ClipboardList, Copy, Database, ImagePlus, LogOut, Trash2, Upload, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/Button";
 import { Field } from "@/components/Field";
@@ -11,6 +11,14 @@ import type { Order } from "@/types/order";
 
 type GalleryWithCount = Gallery & { photoCount: number; missingPhotoCount?: number };
 type UploadPhase = "idle" | "optimizing" | "sending" | "processing";
+type StorageUsage = {
+  bucket: string;
+  bytesUsed: number;
+  fileCount: number;
+  limitBytes: number;
+  remainingBytes: number;
+  percentUsed: number;
+};
 
 const OPTIMIZED_IMAGE_MAX_DIMENSION = 1800;
 const OPTIMIZED_IMAGE_QUALITY = 0.76;
@@ -35,6 +43,9 @@ export default function AdminDashboardPage() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [ordersLoading, setOrdersLoading] = useState(true);
+  const [storageUsage, setStorageUsage] = useState<StorageUsage | null>(null);
+  const [storageLoading, setStorageLoading] = useState(true);
+  const [storageError, setStorageError] = useState("");
   const [working, setWorking] = useState(false);
   const [deletingOrderId, setDeletingOrderId] = useState("");
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -86,6 +97,28 @@ export default function AdminDashboardPage() {
     setOrdersLoading(false);
   }, [apiFetch, router, token]);
 
+  const loadStorageUsage = useCallback(async (accessToken = token) => {
+    setStorageLoading(true);
+    setStorageError("");
+    const response = await apiFetch("/api/admin/storage", {}, accessToken);
+
+    if (response.status === 401 || response.status === 403) {
+      router.replace("/admin/login");
+      return;
+    }
+
+    const payload = (await response.json()) as StorageUsage & { error?: string };
+    if (!response.ok) {
+      setStorageError(payload.error || "Could not load storage usage.");
+      setStorageUsage(null);
+      setStorageLoading(false);
+      return;
+    }
+
+    setStorageUsage(payload);
+    setStorageLoading(false);
+  }, [apiFetch, router, token]);
+
   useEffect(() => {
     const accessToken = window.localStorage.getItem("adminAccessToken");
     if (!accessToken) {
@@ -96,7 +129,8 @@ export default function AdminDashboardPage() {
     setToken(accessToken);
     loadGalleries(accessToken);
     loadOrders(accessToken);
-  }, [loadGalleries, loadOrders, router]);
+    loadStorageUsage(accessToken);
+  }, [loadGalleries, loadOrders, loadStorageUsage, router]);
 
   async function createGallery(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -232,6 +266,7 @@ export default function AdminDashboardPage() {
     setUploadProgress(100);
     setMessage(`Uploaded ${uploadedCount} photo${uploadedCount === 1 ? "" : "s"}.`);
     await loadGalleries();
+    await loadStorageUsage();
   }
 
   async function toggleActive(gallery: GalleryWithCount) {
@@ -255,6 +290,7 @@ export default function AdminDashboardPage() {
       setMessage("Gallery deleted.");
       setSelectedGalleryId("");
       await loadGalleries();
+      await loadStorageUsage();
     }
   }
 
@@ -338,6 +374,14 @@ export default function AdminDashboardPage() {
     return `${(megabytes / 1024).toFixed(1)} GB`;
   }
 
+  function formatStorageSize(bytes: number) {
+    if (bytes <= 0) return "0 MB";
+    const megabytes = bytes / 1024 / 1024;
+    if (megabytes < 1024) return `${megabytes.toFixed(megabytes >= 10 ? 0 : 1)} MB`;
+    const gigabytes = megabytes / 1024;
+    return `${gigabytes.toFixed(gigabytes >= 10 ? 1 : 2)} GB`;
+  }
+
   function formatSubmittedDate(value: string) {
     return new Intl.DateTimeFormat("en", {
       month: "short",
@@ -367,6 +411,58 @@ export default function AdminDashboardPage() {
         </div>
 
         {message ? <p className="mb-6 rounded-md bg-white p-3 text-sm text-leaf shadow-sm">{message}</p> : null}
+
+        <section className="mb-6 rounded-lg bg-white p-5 shadow-sm">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <Database className="text-leaf" size={20} />
+                <h2 className="text-xl font-bold text-ink">Photo storage</h2>
+              </div>
+              <p className="mt-2 text-sm leading-6 text-[#52616b]">
+                Private photo bucket usage for uploaded gallery images.
+              </p>
+            </div>
+            <Button type="button" variant="secondary" onClick={() => loadStorageUsage()} disabled={storageLoading}>
+              {storageLoading ? "Checking..." : "Refresh"}
+            </Button>
+          </div>
+
+          {storageLoading ? <p className="mt-4 text-sm text-[#52616b]">Checking storage usage...</p> : null}
+          {storageError ? <p className="mt-4 text-sm text-[#9b5675]">{storageError}</p> : null}
+          {storageUsage && !storageLoading ? (
+            <div className="mt-5 grid gap-4">
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="rounded-md bg-[#f6f8f3] p-3">
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#52616b]">Used</p>
+                  <p className="mt-1 text-2xl font-bold text-ink">{formatStorageSize(storageUsage.bytesUsed)}</p>
+                </div>
+                <div className="rounded-md bg-[#f6f8f3] p-3">
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#52616b]">Remaining</p>
+                  <p className="mt-1 text-2xl font-bold text-ink">{formatStorageSize(storageUsage.remainingBytes)}</p>
+                </div>
+                <div className="rounded-md bg-[#f6f8f3] p-3">
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#52616b]">Photos</p>
+                  <p className="mt-1 text-2xl font-bold text-ink">{storageUsage.fileCount}</p>
+                </div>
+              </div>
+              <div>
+                <div className="mb-2 flex items-center justify-between gap-3 text-sm font-semibold text-ink">
+                  <span>{storageUsage.percentUsed}% used</span>
+                  <span>
+                    {formatStorageSize(storageUsage.bytesUsed)} of {formatStorageSize(storageUsage.limitBytes)}
+                  </span>
+                </div>
+                <div className="h-3 overflow-hidden rounded-full bg-[#e7ece2]">
+                  <div
+                    className="h-full rounded-full bg-leaf transition-[width] duration-300"
+                    style={{ width: `${storageUsage.percentUsed}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+          ) : null}
+        </section>
 
         <div className="grid gap-6 lg:grid-cols-[0.85fr_1.15fr]">
           <div className="space-y-6">
