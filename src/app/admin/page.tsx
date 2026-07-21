@@ -36,6 +36,7 @@ export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [ordersLoading, setOrdersLoading] = useState(true);
   const [working, setWorking] = useState(false);
+  const [deletingOrderId, setDeletingOrderId] = useState("");
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadPhase, setUploadPhase] = useState<UploadPhase>("idle");
   const [optimizeUploads, setOptimizeUploads] = useState(true);
@@ -255,6 +256,30 @@ export default function AdminDashboardPage() {
       setSelectedGalleryId("");
       await loadGalleries();
     }
+  }
+
+  async function deleteOrder(order: Order) {
+    if (!confirm(`Delete the order from ${order.name}? This cannot be undone.`)) return;
+
+    setDeletingOrderId(order.id);
+    setMessage("");
+
+    const response = await apiFetch("/api/admin/orders", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ orderId: order.id })
+    });
+
+    setDeletingOrderId("");
+
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({} as { error?: string }));
+      setMessage(payload.error || "Could not delete order.");
+      return;
+    }
+
+    setOrders((currentOrders) => currentOrders.filter((currentOrder) => currentOrder.id !== order.id));
+    setMessage(`Order from ${order.name} deleted.`);
   }
 
   async function signOut() {
@@ -533,9 +558,19 @@ export default function AdminDashboardPage() {
                         </div>
                         <div className="flex flex-col items-start gap-2 sm:items-end">
                           <p className="text-sm text-[#52616b]">{formatSubmittedDate(order.created_at)}</p>
-                          <Button type="button" variant="secondary" onClick={() => createGalleryFromOrder(order)} disabled={working}>
-                            Create gallery
-                          </Button>
+                          <div className="flex flex-wrap gap-2 sm:justify-end">
+                            <Button type="button" variant="secondary" onClick={() => createGalleryFromOrder(order)} disabled={working}>
+                              Create gallery
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              onClick={() => deleteOrder(order)}
+                              disabled={Boolean(deletingOrderId)}
+                            >
+                              <Trash2 size={16} /> {deletingOrderId === order.id ? "Deleting..." : "Delete"}
+                            </Button>
+                          </div>
                         </div>
                       </div>
                       <p className="mt-3 whitespace-pre-wrap rounded-md bg-[#f6f8f3] px-3 py-2 text-sm leading-6 text-[#52616b]">
