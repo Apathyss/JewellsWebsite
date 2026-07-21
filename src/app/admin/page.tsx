@@ -15,6 +15,11 @@ type UploadPhase = "idle" | "optimizing" | "sending" | "processing";
 const OPTIMIZED_IMAGE_MAX_DIMENSION = 1800;
 const OPTIMIZED_IMAGE_QUALITY = 0.76;
 const MAX_UPLOAD_BATCH_BYTES = 3.5 * 1024 * 1024;
+const PAST_IMAGE_REQUEST_TYPE = "Past session image request";
+
+function isPastImageRequest(order: Order) {
+  return order.session_type === PAST_IMAGE_REQUEST_TYPE;
+}
 
 export default function AdminDashboardPage() {
   const router = useRouter();
@@ -133,7 +138,7 @@ export default function AdminDashboardPage() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        title: `${order.name} Shoots`,
+        title: `${order.name} Gallery`,
         clientName: order.name,
         clientEmail: order.email,
         expiresAt: null
@@ -494,37 +499,51 @@ export default function AdminDashboardPage() {
               </div>
               {ordersLoading ? <p className="text-[#52616b]">Loading orders...</p> : null}
               <div className="grid gap-3">
-                {orders.map((order) => (
-                  <article key={order.id} className="rounded-lg border border-[#e4e8df] p-4">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                      <div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="font-bold text-ink">{order.name}</h3>
-                          <span className="rounded-full bg-petal px-2 py-0.5 text-xs font-semibold text-ink">
-                            {order.status}
-                          </span>
+                {orders.map((order) => {
+                  const pastImageRequest = isPastImageRequest(order);
+
+                  return (
+                    <article key={order.id} className="rounded-lg border border-[#e4e8df] p-4">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="font-bold text-ink">{order.name}</h3>
+                            <span className="rounded-full bg-petal px-2 py-0.5 text-xs font-semibold text-ink">
+                              {order.status}
+                            </span>
+                            {pastImageRequest ? (
+                              <span className="rounded-full bg-[#fff7f4] px-2 py-0.5 text-xs font-semibold text-[#844865]">
+                                Past images
+                              </span>
+                            ) : null}
+                          </div>
+                          <p className="mt-1 text-sm text-[#52616b]">
+                            {order.email}
+                            {order.phone ? ` - ${order.phone}` : ""}
+                          </p>
+                          <p className="mt-1 text-sm text-[#52616b]">
+                            {pastImageRequest ? PAST_IMAGE_REQUEST_TYPE : order.session_type || "Session request"}
+                          </p>
+                          {!pastImageRequest && order.preferred_date ? (
+                            <p className="mt-1 text-sm text-[#52616b]">Preferred date {formatDate(order.preferred_date)}</p>
+                          ) : null}
+                          {!pastImageRequest && order.location ? (
+                            <p className="mt-1 text-sm text-[#52616b]">{order.location}</p>
+                          ) : null}
                         </div>
-                        <p className="mt-1 text-sm text-[#52616b]">
-                          {order.email}
-                          {order.phone ? ` - ${order.phone}` : ""}
-                        </p>
-                        <p className="mt-1 text-sm text-[#52616b]">
-                          {order.session_type || "Session"} - Preferred date {formatDate(order.preferred_date)}
-                        </p>
-                        {order.location ? <p className="mt-1 text-sm text-[#52616b]">{order.location}</p> : null}
+                        <div className="flex flex-col items-start gap-2 sm:items-end">
+                          <p className="text-sm text-[#52616b]">{formatSubmittedDate(order.created_at)}</p>
+                          <Button type="button" variant="secondary" onClick={() => createGalleryFromOrder(order)} disabled={working}>
+                            Create gallery
+                          </Button>
+                        </div>
                       </div>
-                      <div className="flex flex-col items-start gap-2 sm:items-end">
-                        <p className="text-sm text-[#52616b]">{formatSubmittedDate(order.created_at)}</p>
-                        <Button type="button" variant="secondary" onClick={() => createGalleryFromOrder(order)} disabled={working}>
-                          Create gallery
-                        </Button>
-                      </div>
-                    </div>
-                    <p className="mt-3 whitespace-pre-wrap rounded-md bg-[#f6f8f3] px-3 py-2 text-sm leading-6 text-[#52616b]">
-                      {order.message}
-                    </p>
-                  </article>
-                ))}
+                      <p className="mt-3 whitespace-pre-wrap rounded-md bg-[#f6f8f3] px-3 py-2 text-sm leading-6 text-[#52616b]">
+                        {order.message}
+                      </p>
+                    </article>
+                  );
+                })}
                 {!ordersLoading && orders.length === 0 ? (
                   <p className="rounded-lg border border-dashed border-[#d8ded3] p-6 text-center text-[#52616b]">
                     No orders yet. New website orders will appear here.
