@@ -9,6 +9,24 @@ type PageProps = {
   };
 };
 
+const SIGNED_URL_CONCURRENCY = 8;
+
+async function mapWithConcurrency<T, R>(items: T[], limit: number, mapper: (item: T, index: number) => Promise<R>) {
+  const results = new Array<R>(items.length);
+  let nextIndex = 0;
+
+  async function worker() {
+    while (nextIndex < items.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      results[index] = await mapper(items[index], index);
+    }
+  }
+
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return results;
+}
+
 export const dynamic = "force-dynamic";
 
 export default async function ClientGalleryPage({ params }: PageProps) {
@@ -48,8 +66,10 @@ export default async function ClientGalleryPage({ params }: PageProps) {
     favoriteCounts.set(favorite.photo_id, (favoriteCounts.get(favorite.photo_id) || 0) + 1);
   }
 
-  const photosWithUrls: GalleryPhoto[] = await Promise.all(
-    (photoRows || []).map(async (photo) => {
+  const photosWithUrls: GalleryPhoto[] = await mapWithConcurrency(
+    photoRows || [],
+    SIGNED_URL_CONCURRENCY,
+    async (photo) => {
       const [{ data: viewData }, { data: downloadData }] = await Promise.all([
         supabase.storage.from(PHOTO_BUCKET).createSignedUrl(photo.storage_path, 60 * 60),
         supabase.storage.from(PHOTO_BUCKET).createSignedUrl(photo.storage_path, 60 * 60, {
@@ -63,9 +83,8 @@ export default async function ClientGalleryPage({ params }: PageProps) {
         downloadUrl: downloadData?.signedUrl || "",
         favoriteCount: favoriteCounts.get(photo.id) || 0
       };
-    })
+    }
   );
-  const photos = photosWithUrls.filter((photo) => photo.viewUrl && photo.downloadUrl);
 
-  return <GalleryViewer gallery={gallery} photos={photos} />;
+  return <GalleryViewer gallery={gallery} photos={photosWithUrls} />;
 }

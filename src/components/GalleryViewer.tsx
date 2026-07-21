@@ -154,13 +154,24 @@ export function GalleryViewer({ gallery, photos }: Props) {
                         <Heart size={18} fill={isLiked ? "currentColor" : "none"} />
                         <span>+{likeCount}</span>
                       </button>
-                      <a
-                        className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-[#d8ded3] bg-white text-[#52616b] transition hover:bg-[#f6f8f3]"
-                        href={photo.downloadUrl}
-                        aria-label={`Download ${photo.original_filename}`}
-                      >
-                        <Download size={18} />
-                      </a>
+                      {photo.downloadUrl ? (
+                        <a
+                          className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-[#d8ded3] bg-white text-[#52616b] transition hover:bg-[#f6f8f3]"
+                          href={photo.downloadUrl}
+                          aria-label={`Download ${photo.original_filename}`}
+                        >
+                          <Download size={18} />
+                        </a>
+                      ) : (
+                        <button
+                          type="button"
+                          className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-[#d8ded3] bg-[#f6f8f3] text-[#96a099]"
+                          aria-label={`Download unavailable for ${photo.original_filename}`}
+                          disabled
+                        >
+                          <Download size={18} />
+                        </button>
+                      )}
                     </div>
                   </article>
                 );

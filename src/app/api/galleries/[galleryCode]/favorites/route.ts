@@ -7,6 +7,46 @@ type Params = {
   };
 };
 
+async function saveFavorite({
+  supabase,
+  galleryId,
+  photoId,
+  clientId
+}: {
+  supabase: ReturnType<typeof createServiceSupabaseClient>;
+  galleryId: string;
+  photoId: string;
+  clientId: string;
+}) {
+  const modernFavorite = {
+    gallery_id: galleryId,
+    photo_id: photoId,
+    client_id: clientId
+  };
+
+  const modernResult = await supabase
+    .from("favorites")
+    .upsert(modernFavorite, { onConflict: "gallery_id,photo_id,client_id", ignoreDuplicates: true });
+
+  if (!modernResult.error) return null;
+
+  const legacyFavorite = {
+    gallery_id: galleryId,
+    photo_id: photoId
+  };
+
+  const legacyResult = await supabase
+    .from("favorites")
+    .upsert(legacyFavorite, { onConflict: "gallery_id,photo_id", ignoreDuplicates: true });
+
+  if (!legacyResult.error || legacyResult.error.code === "23505") return null;
+
+  const insertResult = await supabase.from("favorites").insert(legacyFavorite);
+  if (!insertResult.error || insertResult.error.code === "23505") return null;
+
+  return modernResult.error;
+}
+
 export async function POST(request: NextRequest, { params }: Params) {
   const supabase = createServiceSupabaseClient();
   const body = (await request.json()) as { photoId?: string; clientId?: string };
@@ -40,24 +80,22 @@ export async function POST(request: NextRequest, { params }: Params) {
     return NextResponse.json({ error: "Photo not found." }, { status: 404 });
   }
 
-  const { error } = await supabase.from("favorites").upsert(
-    {
-      gallery_id: gallery.id,
-      photo_id: body.photoId,
-      client_id: body.clientId
-    },
-    { onConflict: "gallery_id,photo_id,client_id", ignoreDuplicates: true }
-  );
+  const error = await saveFavorite({
+    supabase,
+    galleryId: gallery.id,
+    photoId: body.photoId,
+    clientId: body.clientId
+  });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   const { count, error: countError } = await supabase
     .from("favorites")
-    .select("id", { count: "exact", head: true })
+    .select("photo_id", { count: "exact", head: true })
     .eq("gallery_id", gallery.id)
     .eq("photo_id", body.photoId);
 
-  if (countError) return NextResponse.json({ error: countError.message }, { status: 500 });
+  if (countError) return NextResponse.json({ ok: true });
 
   return NextResponse.json({ ok: true, favoriteCount: count || 0 });
 }
