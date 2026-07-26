@@ -73,6 +73,10 @@ create table if not exists public.portfolio_likes (
 alter table public.portfolio_likes drop constraint if exists portfolio_likes_photo_id_client_id_key;
 alter table public.portfolio_likes add constraint portfolio_likes_photo_id_client_id_key unique (photo_id, client_id);
 
+grant select, insert, update, delete on table public.orders to service_role;
+grant select, insert, update, delete on table public.portfolio_photos to service_role;
+grant select, insert, update, delete on table public.portfolio_likes to service_role;
+
 create index if not exists galleries_gallery_code_idx on public.galleries(gallery_code);
 create index if not exists photos_gallery_id_idx on public.photos(gallery_id);
 create index if not exists favorites_gallery_id_idx on public.favorites(gallery_id);
