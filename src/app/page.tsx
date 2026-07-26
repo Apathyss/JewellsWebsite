@@ -161,13 +161,13 @@ export default async function HomePage() {
               {portfolioPhotos.map((photo) => (
                 <a
                   key={photo.id}
-                  className="group overflow-hidden rounded-lg bg-[#e9eee5] shadow-sm"
+                  className="group overflow-hidden rounded-lg bg-[#f6f8f3] shadow-sm"
                   href="/portfolio"
                   aria-label="Open Jewells Portfolio"
                 >
-                  <span className="block aspect-[4/5] overflow-hidden">
+                  <span className="block overflow-hidden">
                     <img
-                      className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                      className="h-auto w-full transition duration-300 group-hover:opacity-90"
                       src={photo.imageUrl}
                       alt={photo.title || photo.original_filename}
                     />

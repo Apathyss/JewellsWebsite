@@ -925,11 +925,11 @@ export default function AdminDashboardPage() {
                   return (
                     <article key={photo.id} className="rounded-lg border border-[#e4e8df] p-3">
                       <div className="grid gap-3 sm:grid-cols-[6.5rem_1fr]">
-                        <div className="aspect-square overflow-hidden rounded-md bg-[#e9eee5]">
+                        <div className="overflow-hidden rounded-md bg-[#f6f8f3]">
                           {photo.imageUrl ? (
-                            <img className="h-full w-full object-cover" src={photo.imageUrl} alt={title} />
+                            <img className="h-auto w-full" src={photo.imageUrl} alt={title} />
                           ) : (
-                            <span className="flex h-full items-center justify-center text-xs text-[#52616b]">
+                            <span className="flex min-h-28 items-center justify-center text-xs text-[#52616b]">
                               No preview
                             </span>
                           )}

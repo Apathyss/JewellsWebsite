@@ -96,14 +96,14 @@ export function PortfolioViewer({ photos }: Props) {
             <article key={photo.id} className="group overflow-hidden rounded-lg bg-white shadow-sm">
               <button
                 type="button"
-                className="block aspect-[4/5] w-full overflow-hidden bg-[#e9eee5]"
+                className="block w-full overflow-hidden bg-[#f6f8f3]"
                 onClick={() => setActivePhoto(photo)}
                 aria-label={`Open ${title}`}
                 disabled={!photo.imageUrl || brokenPreviewIds.has(photo.id)}
               >
                 {photo.imageUrl && !brokenPreviewIds.has(photo.id) ? (
                   <img
-                    className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                    className="h-auto w-full transition duration-300 group-hover:opacity-90"
                     src={photo.imageUrl}
                     alt={title}
                     onError={() =>
@@ -115,7 +115,7 @@ export function PortfolioViewer({ photos }: Props) {
                     }
                   />
                 ) : (
-                  <span className="flex h-full flex-col items-center justify-center gap-2 p-3 text-center text-sm text-[#52616b]">
+                  <span className="flex min-h-56 flex-col items-center justify-center gap-2 p-3 text-center text-sm text-[#52616b]">
                     <ImageOff className="text-leaf" size={24} />
                     Preview unavailable
                   </span>
