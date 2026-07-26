@@ -1,8 +1,9 @@
 import type { LucideIcon } from "lucide-react";
-import { ClipboardList, Heart, Images, PartyPopper, PawPrint, Sparkles, Sunrise, Users, UserRound } from "lucide-react";
+import { Camera, ClipboardList, Heart, PartyPopper, PawPrint, Sparkles, Sunrise, Users, UserRound } from "lucide-react";
 import Image from "next/image";
 import { ButtonLink } from "@/components/Button";
 import { OrderForm } from "@/components/OrderForm";
+import { getPortfolioPhotos } from "@/lib/portfolio";
 
 const sessionTypes: { label: string; icon: LucideIcon }[] = [
   { label: "Family Sessions", icon: Users },
@@ -11,12 +12,6 @@ const sessionTypes: { label: string; icon: LucideIcon }[] = [
   { label: "Portraits & Solo Sessions", icon: UserRound },
   { label: "Events & Celebrations", icon: PartyPopper },
   { label: "Specialty Sessions", icon: Sunrise }
-];
-
-const steps = [
-  "Send a quick request or tell us which gallery you are looking for.",
-  "After your photos are ready, you receive a private gallery link.",
-  "Open your gallery from any device, save favorites, and download your photos."
 ];
 
 const heroPhotos = [
@@ -30,7 +25,11 @@ const heroPhotos = [
 
 const heroSlides = [...heroPhotos, heroPhotos[0]];
 
-export default function HomePage() {
+export const dynamic = "force-dynamic";
+
+export default async function HomePage() {
+  const portfolioPhotos = await getPortfolioPhotos({ limit: 4 });
+
   return (
     <main>
       <section id="session-types" className="bg-white py-10 sm:py-12 lg:py-14">
@@ -63,14 +62,14 @@ export default function HomePage() {
               </div>
               <div className="flex flex-col gap-3 sm:flex-row sm:justify-center lg:justify-start">
                 <ButtonLink href="#contact" className="min-h-12 !bg-[#9b5675] px-6 text-base hover:!bg-[#844865]">
-                  Book A Session
+                  Let&apos;s Plan Your Session
                 </ButtonLink>
                 <ButtonLink
-                  href="#past-session-images"
+                  href="/portfolio"
                   variant="secondary"
                   className="min-h-12 border-[#b6879d] px-6 text-base text-[#844865] hover:bg-[#fff6f9]"
                 >
-                  Request Past Session Images
+                  View Jewells Portfolio
                 </ButtonLink>
               </div>
             </div>
@@ -79,7 +78,7 @@ export default function HomePage() {
           <div className="mt-8 rounded-lg bg-[#fff7f4] p-4 shadow-sm sm:p-5 lg:mt-10">
             <div className="grid items-center gap-4 lg:grid-cols-[13rem_1fr]">
               <div className="text-center lg:text-left">
-                <h2 className="text-2xl font-bold text-ink">What I Photograph</h2>
+                <h2 className="text-2xl font-bold text-ink">Moments I Love to Capture</h2>
                 <Sparkles className="mx-auto mt-2 h-4 w-4 text-[#9b5675] lg:mx-0" aria-hidden="true" />
               </div>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
@@ -103,11 +102,10 @@ export default function HomePage() {
           <div className="space-y-5">
             <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#9b5675]">Private galleries</p>
             <h2 className="text-3xl font-bold leading-tight text-ink sm:text-4xl">
-              Your favorite moments, gathered in one easy place.
+              Your memories, all in one place.
             </h2>
             <p className="leading-7 text-[#52616b]">
-              Browse your finished gallery from any device, save favorites, and download the photos you want to keep
-              close.
+              Private online galleries. Easy downloads. Photos you&apos;ll love revisiting.
             </p>
             <div className="grid gap-3 text-sm font-semibold text-[#52616b] sm:grid-cols-3 md:grid-cols-1">
               <span className="rounded-md bg-white px-4 py-3 shadow-sm">Private gallery links</span>
@@ -141,22 +139,47 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section id="how-it-works" className="bg-white py-16">
+      <section id="portfolio" className="bg-white py-16 sm:py-20">
         <div className="mx-auto max-w-6xl px-5 md:px-8">
-          <div className="mb-8 flex items-center gap-3">
-            <Images className="text-leaf" />
-            <h2 className="text-3xl font-bold text-ink">How it works</h2>
+          <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.18em] text-[#9b5675]">
+                <Camera className="h-4 w-4" aria-hidden="true" />
+                Jewells Portfolio
+              </p>
+              <h2 className="mt-3 text-3xl font-bold leading-tight text-ink sm:text-4xl">
+                A peek at the moments Jewell loves to capture.
+              </h2>
+            </div>
+            <ButtonLink href="/portfolio" variant="secondary" className="border-[#b6879d] text-[#844865] hover:bg-[#fff6f9]">
+              See the full portfolio
+            </ButtonLink>
           </div>
-          <div className="grid gap-4 md:grid-cols-3">
-            {steps.map((step, index) => (
-              <div key={step} className="rounded-lg bg-cream p-5 shadow-sm">
-                <span className="mb-4 inline-flex h-9 w-9 items-center justify-center rounded-full bg-petal font-bold text-ink">
-                  {index + 1}
-                </span>
-                <p className="leading-7 text-[#52616b]">{step}</p>
-              </div>
-            ))}
-          </div>
+
+          {portfolioPhotos.length ? (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {portfolioPhotos.map((photo) => (
+                <a
+                  key={photo.id}
+                  className="group overflow-hidden rounded-lg bg-[#e9eee5] shadow-sm"
+                  href="/portfolio"
+                  aria-label="Open Jewells Portfolio"
+                >
+                  <span className="block aspect-[4/5] overflow-hidden">
+                    <img
+                      className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                      src={photo.imageUrl}
+                      alt={photo.title || photo.original_filename}
+                    />
+                  </span>
+                </a>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-lg bg-[#f6f8f3] p-6 text-center text-[#52616b]">
+              Portfolio photos will appear here once they are added from the admin page.
+            </div>
+          )}
         </div>
       </section>
 
@@ -164,7 +187,7 @@ export default function HomePage() {
         <div className="mx-auto grid max-w-6xl gap-8 px-5 md:grid-cols-[0.9fr_1.1fr] md:px-8">
           <div>
             <ClipboardList className="mb-4 text-petal" />
-            <h2 className="text-3xl font-bold">Let&apos;s Capture Your Story</h2>
+            <h2 className="text-3xl font-bold">Let&apos;s Plan Your Session</h2>
             <p className="mt-4 leading-7 text-white/76">
               I&apos;d love to learn more about your vision or help you find past session images. Choose what you need
               in the form and I&apos;ll be in touch as soon as possible. (I typically respond within 24-48 hours.)

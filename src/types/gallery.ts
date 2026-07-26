@@ -22,3 +22,20 @@ export type GalleryPhoto = Photo & {
   downloadUrl: string;
   favoriteCount: number;
 };
+
+export type PortfolioPhoto = {
+  id: string;
+  storage_path: string;
+  original_filename: string;
+  title: string | null;
+  description: string | null;
+  category: string | null;
+  active: boolean;
+  sort_order: number;
+  created_at: string;
+};
+
+export type PortfolioPhotoWithUrl = PortfolioPhoto & {
+  imageUrl: string;
+  likeCount: number;
+};

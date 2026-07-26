@@ -5,6 +5,7 @@ export type Order = {
   phone: string | null;
   session_type: string | null;
   preferred_date: string | null;
+  preferred_time: string | null;
   location: string | null;
   message: string;
   status: string;

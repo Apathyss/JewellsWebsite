@@ -42,11 +42,36 @@ create table if not exists public.orders (
   phone text,
   session_type text,
   preferred_date date,
+  preferred_time time,
   location text,
   message text not null,
   status text not null default 'new',
   created_at timestamptz not null default now()
 );
+
+alter table public.orders add column if not exists preferred_time time;
+
+create table if not exists public.portfolio_photos (
+  id uuid primary key default gen_random_uuid(),
+  storage_path text not null unique,
+  original_filename text not null,
+  title text,
+  description text,
+  category text,
+  active boolean not null default true,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.portfolio_likes (
+  id uuid primary key default gen_random_uuid(),
+  photo_id uuid not null references public.portfolio_photos(id) on delete cascade,
+  client_id text not null,
+  created_at timestamptz not null default now()
+);
+
+alter table public.portfolio_likes drop constraint if exists portfolio_likes_photo_id_client_id_key;
+alter table public.portfolio_likes add constraint portfolio_likes_photo_id_client_id_key unique (photo_id, client_id);
 
 create index if not exists galleries_gallery_code_idx on public.galleries(gallery_code);
 create index if not exists photos_gallery_id_idx on public.photos(gallery_id);
@@ -54,11 +79,15 @@ create index if not exists favorites_gallery_id_idx on public.favorites(gallery_
 create index if not exists favorites_photo_id_idx on public.favorites(photo_id);
 create index if not exists orders_created_at_idx on public.orders(created_at desc);
 create index if not exists orders_status_idx on public.orders(status);
+create index if not exists portfolio_photos_active_created_at_idx on public.portfolio_photos(active, created_at desc);
+create index if not exists portfolio_likes_photo_id_idx on public.portfolio_likes(photo_id);
 
 alter table public.galleries enable row level security;
 alter table public.photos enable row level security;
 alter table public.favorites enable row level security;
 alter table public.orders enable row level security;
+alter table public.portfolio_photos enable row level security;
+alter table public.portfolio_likes enable row level security;
 
 -- The app uses server-side API routes with SUPABASE_SERVICE_ROLE_KEY for gallery
 -- management and private gallery reads. These locked-down policies keep direct
@@ -67,6 +96,8 @@ drop policy if exists "No direct gallery reads" on public.galleries;
 drop policy if exists "No direct photo reads" on public.photos;
 drop policy if exists "No direct favorite reads" on public.favorites;
 drop policy if exists "No direct order reads" on public.orders;
+drop policy if exists "No direct portfolio photo reads" on public.portfolio_photos;
+drop policy if exists "No direct portfolio like reads" on public.portfolio_likes;
 
 create policy "No direct gallery reads"
   on public.galleries for select
@@ -84,7 +115,17 @@ create policy "No direct order reads"
   on public.orders for select
   using (false);
 
+create policy "No direct portfolio photo reads"
+  on public.portfolio_photos for select
+  using (false);
+
+create policy "No direct portfolio like reads"
+  on public.portfolio_likes for select
+  using (false);
+
 -- Storage bucket:
 -- 1. In Supabase, create a private bucket named gallery-photos.
 -- 2. Keep it private. The app generates short-lived signed URLs on the server.
--- 3. No public storage policy is required for this starter version.
+-- 3. Client galleries and public portfolio photos can share this bucket because
+--    all writes and reads go through server-side API routes.
+-- 4. No public storage policy is required for this starter version.

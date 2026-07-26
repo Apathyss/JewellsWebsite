@@ -9,6 +9,7 @@ export async function POST(request: NextRequest) {
       phone?: string;
       sessionType?: string;
       preferredDate?: string | null;
+      preferredTime?: string | null;
       location?: string;
       message?: string;
     };
@@ -23,21 +24,28 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = createServiceSupabaseClient();
-    const { data, error } = await supabase
-      .from("orders")
-      .insert({
-        name: body.name.trim(),
-        email,
-        phone: body.phone?.trim() || null,
-        session_type: body.sessionType?.trim() || null,
-        preferred_date: body.preferredDate || null,
-        location: body.location?.trim() || null,
-        message: body.message.trim()
-      })
-      .select("id")
-      .single();
+    const order = {
+      name: body.name.trim(),
+      email,
+      phone: body.phone?.trim() || null,
+      session_type: body.sessionType?.trim() || null,
+      preferred_date: body.preferredDate || null,
+      preferred_time: body.preferredTime || null,
+      location: body.location?.trim() || null,
+      message: body.message.trim()
+    };
+
+    let { data, error } = await supabase.from("orders").insert(order).select("id").single();
+
+    if (error && error.message.toLowerCase().includes("preferred_time")) {
+      const { preferred_time: _preferredTime, ...orderWithoutPreferredTime } = order;
+      const fallbackResult = await supabase.from("orders").insert(orderWithoutPreferredTime).select("id").single();
+      data = fallbackResult.data;
+      error = fallbackResult.error;
+    }
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (!data) return NextResponse.json({ error: "Could not submit order." }, { status: 500 });
 
     return NextResponse.json({ orderId: data.id });
   } catch (error) {

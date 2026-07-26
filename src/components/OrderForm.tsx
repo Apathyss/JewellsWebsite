@@ -14,6 +14,7 @@ export function OrderForm() {
   const [phone, setPhone] = useState("");
   const [sessionType, setSessionType] = useState("");
   const [preferredDate, setPreferredDate] = useState("");
+  const [preferredTime, setPreferredTime] = useState("");
   const [location, setLocation] = useState("");
   const [message, setMessage] = useState("");
   const [notice, setNotice] = useState("");
@@ -47,6 +48,7 @@ export function OrderForm() {
           phone,
           sessionType: isPastImageRequest ? "Past session image request" : sessionType,
           preferredDate: isPastImageRequest ? null : preferredDate || null,
+          preferredTime: isPastImageRequest ? null : preferredTime || null,
           location: isPastImageRequest ? "" : location,
           message
         })
@@ -71,6 +73,7 @@ export function OrderForm() {
     setPhone("");
     setSessionType("");
     setPreferredDate("");
+    setPreferredTime("");
     setLocation("");
     setMessage("");
     setNotice("Thanks! Your request was sent and I will follow up soon.");
@@ -129,18 +132,27 @@ export function OrderForm() {
       </div>
       {!isPastImageRequest ? (
         <>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field
+              label="Preferred time"
+              name="preferredTime"
+              type="time"
+              value={preferredTime}
+              onChange={(event) => setPreferredTime(event.target.value)}
+            />
+            <Field
+              label="Preferred park or location"
+              name="location"
+              value={location}
+              onChange={(event) => setLocation(event.target.value)}
+            />
+          </div>
           <Field
             label="Session type"
             name="sessionType"
             placeholder="Family, couple, grad, friends..."
             value={sessionType}
             onChange={(event) => setSessionType(event.target.value)}
-          />
-          <Field
-            label="Preferred park or location"
-            name="location"
-            value={location}
-            onChange={(event) => setLocation(event.target.value)}
           />
         </>
       ) : null}
@@ -157,7 +169,7 @@ export function OrderForm() {
         required
       />
       <Button type="submit" disabled={submitting}>
-        <Send size={18} /> {submitting ? "Sending..." : isPastImageRequest ? "Send image request" : "Send booking request"}
+        <Send size={18} /> {submitting ? "Sending..." : isPastImageRequest ? "Access Your Gallery" : "Let's Plan Your Session"}
       </Button>
       {notice ? <p className="text-sm text-[#52616b]">{notice}</p> : null}
     </form>

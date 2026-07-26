@@ -1,16 +1,17 @@
 "use client";
 
 import { ChangeEvent, DragEvent, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ClipboardList, Copy, Database, ImagePlus, LogOut, Trash2, Upload, X } from "lucide-react";
+import { Camera, ClipboardList, Copy, Database, Eye, EyeOff, ImagePlus, LogOut, Trash2, Upload, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/Button";
 import { Field } from "@/components/Field";
 import { formatDate } from "@/lib/format";
-import type { Gallery } from "@/types/gallery";
+import type { Gallery, PortfolioPhotoWithUrl } from "@/types/gallery";
 import type { Order } from "@/types/order";
 
 type GalleryWithCount = Gallery & { photoCount: number; missingPhotoCount?: number };
 type UploadPhase = "idle" | "optimizing" | "sending" | "processing";
+type UploadTarget = "gallery" | "portfolio" | "";
 type StorageUsage = {
   bucket: string;
   bytesUsed: number;
@@ -40,9 +41,15 @@ export default function AdminDashboardPage() {
   const [expiresAt, setExpiresAt] = useState("");
   const [selectedGalleryId, setSelectedGalleryId] = useState("");
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [portfolioPhotos, setPortfolioPhotos] = useState<PortfolioPhotoWithUrl[]>([]);
+  const [portfolioTitle, setPortfolioTitle] = useState("");
+  const [portfolioCategory, setPortfolioCategory] = useState("");
+  const [portfolioDescription, setPortfolioDescription] = useState("");
+  const [selectedPortfolioFiles, setSelectedPortfolioFiles] = useState<File[]>([]);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [ordersLoading, setOrdersLoading] = useState(true);
+  const [portfolioLoading, setPortfolioLoading] = useState(true);
   const [storageUsage, setStorageUsage] = useState<StorageUsage | null>(null);
   const [storageLoading, setStorageLoading] = useState(true);
   const [storageError, setStorageError] = useState("");
@@ -50,8 +57,10 @@ export default function AdminDashboardPage() {
   const [deletingOrderId, setDeletingOrderId] = useState("");
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadPhase, setUploadPhase] = useState<UploadPhase>("idle");
+  const [uploadTarget, setUploadTarget] = useState<UploadTarget>("");
   const [optimizeUploads, setOptimizeUploads] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const portfolioFileInputRef = useRef<HTMLInputElement>(null);
 
   const siteUrl = useMemo(() => {
     if (typeof window === "undefined") return "";
@@ -97,6 +106,26 @@ export default function AdminDashboardPage() {
     setOrdersLoading(false);
   }, [apiFetch, router, token]);
 
+  const loadPortfolio = useCallback(async (accessToken = token) => {
+    setPortfolioLoading(true);
+    const response = await apiFetch("/api/admin/portfolio", {}, accessToken);
+
+    if (response.status === 401 || response.status === 403) {
+      router.replace("/admin/login");
+      return;
+    }
+
+    if (!response.ok) {
+      setPortfolioPhotos([]);
+      setPortfolioLoading(false);
+      return;
+    }
+
+    const payload = (await response.json()) as { photos: PortfolioPhotoWithUrl[] };
+    setPortfolioPhotos(payload.photos || []);
+    setPortfolioLoading(false);
+  }, [apiFetch, router, token]);
+
   const loadStorageUsage = useCallback(async (accessToken = token) => {
     setStorageLoading(true);
     setStorageError("");
@@ -129,8 +158,9 @@ export default function AdminDashboardPage() {
     setToken(accessToken);
     loadGalleries(accessToken);
     loadOrders(accessToken);
+    loadPortfolio(accessToken);
     loadStorageUsage(accessToken);
-  }, [loadGalleries, loadOrders, loadStorageUsage, router]);
+  }, [loadGalleries, loadOrders, loadPortfolio, loadStorageUsage, router]);
 
   async function createGallery(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -200,6 +230,7 @@ export default function AdminDashboardPage() {
     setWorking(true);
     setMessage("");
     setUploadProgress(0);
+    setUploadTarget("gallery");
 
     let uploadFiles = selectedFiles;
     if (optimizeUploads) {
@@ -214,6 +245,7 @@ export default function AdminDashboardPage() {
       } catch (error) {
         setWorking(false);
         setUploadPhase("idle");
+        setUploadTarget("");
         setUploadProgress(0);
         setMessage(error instanceof Error ? error.message : "Could not optimize photos.");
         return;
@@ -246,6 +278,7 @@ export default function AdminDashboardPage() {
       if (!ok) {
         setWorking(false);
         setUploadPhase("idle");
+        setUploadTarget("");
         setUploadProgress(0);
         setMessage(payload.error || `Could not upload batch ${batchIndex + 1} of ${uploadBatches.length}.`);
         return;
@@ -261,11 +294,96 @@ export default function AdminDashboardPage() {
 
     setWorking(false);
     setUploadPhase("idle");
+    setUploadTarget("");
 
     setSelectedFiles([]);
     setUploadProgress(100);
     setMessage(`Uploaded ${uploadedCount} photo${uploadedCount === 1 ? "" : "s"}.`);
     await loadGalleries();
+    await loadStorageUsage();
+  }
+
+  async function uploadPortfolioPhotos(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (selectedPortfolioFiles.length === 0) return;
+
+    setWorking(true);
+    setMessage("");
+    setUploadProgress(0);
+    setUploadTarget("portfolio");
+
+    let uploadFiles = selectedPortfolioFiles;
+    if (optimizeUploads) {
+      setUploadPhase("optimizing");
+      const optimizedFiles = [];
+
+      try {
+        for (let index = 0; index < selectedPortfolioFiles.length; index += 1) {
+          optimizedFiles.push(await optimizeImageFile(selectedPortfolioFiles[index]));
+          setUploadProgress(Math.round(((index + 1) / selectedPortfolioFiles.length) * 100));
+        }
+      } catch (error) {
+        setWorking(false);
+        setUploadPhase("idle");
+        setUploadTarget("");
+        setUploadProgress(0);
+        setMessage(error instanceof Error ? error.message : "Could not optimize portfolio photos.");
+        return;
+      }
+
+      uploadFiles = optimizedFiles;
+    }
+
+    setUploadProgress(0);
+    setUploadPhase("sending");
+    const uploadBatches = createUploadBatches(uploadFiles);
+    const uploadTotalBytes = uploadFiles.reduce((totalBytes, file) => totalBytes + file.size, 0);
+    let uploadedBytesBeforeBatch = 0;
+    let uploadedCount = 0;
+
+    for (let batchIndex = 0; batchIndex < uploadBatches.length; batchIndex += 1) {
+      const batch = uploadBatches[batchIndex];
+      const batchBytes = batch.reduce((totalBytes, file) => totalBytes + file.size, 0);
+      const { ok, payload } = await uploadPortfolioPhotoBatch({
+        batch,
+        token,
+        title: portfolioTitle,
+        category: portfolioCategory,
+        description: portfolioDescription,
+        applyDetails: selectedPortfolioFiles.length === 1,
+        onProgress: (loadedBytes) => {
+          const totalLoadedBytes = Math.min(uploadedBytesBeforeBatch + loadedBytes, uploadTotalBytes);
+          setUploadProgress(Math.round((totalLoadedBytes / uploadTotalBytes) * 100));
+          if (loadedBytes >= batchBytes) setUploadPhase("processing");
+        }
+      });
+
+      if (!ok) {
+        setWorking(false);
+        setUploadPhase("idle");
+        setUploadTarget("");
+        setUploadProgress(0);
+        setMessage(payload.error || `Could not upload portfolio batch ${batchIndex + 1} of ${uploadBatches.length}.`);
+        return;
+      }
+
+      uploadedBytesBeforeBatch += batchBytes;
+      uploadedCount += payload.count || 0;
+
+      if (batchIndex < uploadBatches.length - 1) {
+        setUploadPhase("sending");
+      }
+    }
+
+    setWorking(false);
+    setUploadPhase("idle");
+    setUploadTarget("");
+    setSelectedPortfolioFiles([]);
+    setPortfolioTitle("");
+    setPortfolioDescription("");
+    setUploadProgress(100);
+    setMessage(`Uploaded ${uploadedCount} portfolio photo${uploadedCount === 1 ? "" : "s"}.`);
+    await loadPortfolio();
     await loadStorageUsage();
   }
 
@@ -290,6 +408,31 @@ export default function AdminDashboardPage() {
       setMessage("Gallery deleted.");
       setSelectedGalleryId("");
       await loadGalleries();
+      await loadStorageUsage();
+    }
+  }
+
+  async function togglePortfolioActive(photo: PortfolioPhotoWithUrl) {
+    const response = await apiFetch(`/api/admin/portfolio/${photo.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ active: !photo.active })
+    });
+
+    if (response.ok) await loadPortfolio();
+  }
+
+  async function deletePortfolioPhoto(photo: PortfolioPhotoWithUrl) {
+    const title = photo.title || photo.original_filename;
+    if (!confirm(`Delete "${title}" from Jewells Portfolio? This cannot be undone.`)) return;
+
+    const response = await apiFetch(`/api/admin/portfolio/${photo.id}`, {
+      method: "DELETE"
+    });
+
+    if (response.ok) {
+      setMessage("Portfolio photo deleted.");
+      await loadPortfolio();
       await loadStorageUsage();
     }
   }
@@ -346,8 +489,31 @@ export default function AdminDashboardPage() {
     });
   }
 
+  function addPortfolioFiles(files: File[]) {
+    const incomingFiles = files.filter((file) => file.type.startsWith("image/"));
+    if (incomingFiles.length === 0 || working) return;
+
+    setSelectedPortfolioFiles((currentFiles) => {
+      const existingFileKeys = new Set(
+        currentFiles.map((file) => `${file.name}-${file.size}-${file.lastModified}`)
+      );
+      const newFiles = incomingFiles.filter((file) => {
+        const key = `${file.name}-${file.size}-${file.lastModified}`;
+        return !existingFileKeys.has(key);
+      });
+
+      return [...currentFiles, ...newFiles];
+    });
+  }
+
   function onFileChange(event: ChangeEvent<HTMLInputElement>) {
     addFiles(Array.from(event.target.files || []));
+
+    event.target.value = "";
+  }
+
+  function onPortfolioFileChange(event: ChangeEvent<HTMLInputElement>) {
+    addPortfolioFiles(Array.from(event.target.files || []));
 
     event.target.value = "";
   }
@@ -357,14 +523,29 @@ export default function AdminDashboardPage() {
     addFiles(Array.from(event.dataTransfer.files || []));
   }
 
+  function onPortfolioPhotoDrop(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    addPortfolioFiles(Array.from(event.dataTransfer.files || []));
+  }
+
   function removeSelectedFile(fileToRemove: File) {
     if (working) return;
     setSelectedFiles((currentFiles) => currentFiles.filter((file) => file !== fileToRemove));
   }
 
+  function removeSelectedPortfolioFile(fileToRemove: File) {
+    if (working) return;
+    setSelectedPortfolioFiles((currentFiles) => currentFiles.filter((file) => file !== fileToRemove));
+  }
+
   const selectedUploadSize = useMemo(
     () => selectedFiles.reduce((totalBytes, file) => totalBytes + file.size, 0),
     [selectedFiles]
+  );
+
+  const selectedPortfolioUploadSize = useMemo(
+    () => selectedPortfolioFiles.reduce((totalBytes, file) => totalBytes + file.size, 0),
+    [selectedPortfolioFiles]
   );
 
   function formatFileSize(bytes: number) {
@@ -390,6 +571,18 @@ export default function AdminDashboardPage() {
       hour: "numeric",
       minute: "2-digit"
     }).format(new Date(value));
+  }
+
+  function formatPreferredTime(value: string) {
+    const [hourText, minuteText] = value.split(":");
+    const hour = Number(hourText);
+    const minute = Number(minuteText);
+
+    if (Number.isNaN(hour) || Number.isNaN(minute)) return value;
+
+    const period = hour >= 12 ? "PM" : "AM";
+    const displayHour = hour % 12 || 12;
+    return `${displayHour}:${String(minute).padStart(2, "0")} ${period}`;
   }
 
   return (
@@ -563,7 +756,7 @@ export default function AdminDashboardPage() {
                     </div>
                   </div>
                 ) : null}
-                {working && uploadPhase !== "idle" ? (
+                {working && uploadTarget === "gallery" && uploadPhase !== "idle" ? (
                   <div className="grid gap-2 rounded-md border border-[#d8ded3] bg-white p-3">
                     <div className="flex items-center justify-between gap-3 text-sm font-semibold text-ink">
                       <span>
@@ -610,9 +803,174 @@ export default function AdminDashboardPage() {
                 </Button>
               </div>
             </form>
+
+            <form onSubmit={uploadPortfolioPhotos} className="rounded-lg bg-white p-5 shadow-sm">
+              <div className="mb-4 flex items-center gap-2">
+                <Camera className="text-leaf" size={20} />
+                <h2 className="text-xl font-bold text-ink">Jewells Portfolio</h2>
+              </div>
+              <div className="grid gap-4">
+                <Field
+                  label="Photo title (optional)"
+                  value={portfolioTitle}
+                  onChange={(event) => setPortfolioTitle(event.target.value)}
+                />
+                <Field
+                  label="Category (optional)"
+                  value={portfolioCategory}
+                  onChange={(event) => setPortfolioCategory(event.target.value)}
+                  placeholder="Families, pets, portraits..."
+                />
+                <label className="grid gap-2 text-sm font-medium text-ink">
+                  Short note (optional)
+                  <textarea
+                    className="min-h-24 rounded-md border border-[#d8ded3] bg-white px-3 py-2 text-base shadow-sm outline-none transition focus:border-leaf focus:ring-2 focus:ring-leaf/20"
+                    value={portfolioDescription}
+                    onChange={(event) => setPortfolioDescription(event.target.value)}
+                  />
+                </label>
+                <div
+                  className="grid gap-3 rounded-lg border border-dashed border-[#cbd5c0] bg-[#fbfdf8] p-5 text-center text-sm text-[#52616b]"
+                  onDragOver={(event) => event.preventDefault()}
+                  onDrop={onPortfolioPhotoDrop}
+                >
+                  <ImagePlus className="mx-auto text-leaf" />
+                  <span>
+                    {selectedPortfolioFiles.length
+                      ? `${selectedPortfolioFiles.length} selected`
+                      : "Add portfolio photos or drag them here"}
+                  </span>
+                  <Button type="button" variant="secondary" onClick={() => portfolioFileInputRef.current?.click()} disabled={working}>
+                    Add portfolio photos
+                  </Button>
+                  <input
+                    ref={portfolioFileInputRef}
+                    className="sr-only"
+                    type="file"
+                    name="photos"
+                    accept="image/*"
+                    multiple={true}
+                    onChange={onPortfolioFileChange}
+                  />
+                </div>
+                {selectedPortfolioFiles.length ? (
+                  <div className="grid gap-2 rounded-md bg-[#f6f8f3] p-3 text-sm text-[#52616b]">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="font-semibold text-ink">
+                        {selectedPortfolioFiles.length} photo{selectedPortfolioFiles.length === 1 ? "" : "s"} ready -{" "}
+                        {formatFileSize(selectedPortfolioUploadSize)}
+                      </span>
+                      <Button type="button" variant="secondary" onClick={() => setSelectedPortfolioFiles([])} disabled={working}>
+                        Clear
+                      </Button>
+                    </div>
+                    <div className="grid max-h-36 gap-2 overflow-auto">
+                      {selectedPortfolioFiles.map((file) => (
+                        <div
+                          key={`${file.name}-${file.size}-${file.lastModified}`}
+                          className="flex items-center justify-between gap-3 rounded-md bg-white px-3 py-2"
+                        >
+                          <span className="truncate">{file.name}</span>
+                          <button
+                            type="button"
+                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-[#52616b] transition hover:bg-[#eef3e9] hover:text-ink"
+                            aria-label={`Remove ${file.name}`}
+                            onClick={() => removeSelectedPortfolioFile(file)}
+                          >
+                            <X size={16} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+                {working && uploadTarget === "portfolio" && uploadPhase !== "idle" ? (
+                  <div className="grid gap-2 rounded-md border border-[#d8ded3] bg-white p-3">
+                    <div className="flex items-center justify-between gap-3 text-sm font-semibold text-ink">
+                      <span>
+                        {uploadPhase === "optimizing"
+                          ? "Optimizing portfolio photos"
+                          : uploadPhase === "sending"
+                            ? "Uploading portfolio photos"
+                            : "Finishing upload"}
+                      </span>
+                      <span>{uploadProgress}%</span>
+                    </div>
+                    <div className="h-3 overflow-hidden rounded-full bg-[#e7ece2]">
+                      <div
+                        className="h-full rounded-full bg-leaf transition-[width] duration-300"
+                        style={{ width: `${uploadProgress}%` }}
+                      />
+                    </div>
+                  </div>
+                ) : null}
+                <Button type="submit" disabled={working || selectedPortfolioFiles.length === 0}>
+                  <Upload size={18} /> Add to portfolio
+                </Button>
+              </div>
+            </form>
           </div>
 
           <div className="space-y-6">
+            <section className="rounded-lg bg-white p-5 shadow-sm">
+              <div className="mb-4 flex items-center gap-2">
+                <Camera className="text-leaf" size={20} />
+                <h2 className="text-xl font-bold text-ink">Portfolio photos</h2>
+              </div>
+              {portfolioLoading ? <p className="text-[#52616b]">Loading portfolio...</p> : null}
+              <div className="grid gap-3">
+                {portfolioPhotos.map((photo) => {
+                  const title = photo.title || photo.original_filename;
+
+                  return (
+                    <article key={photo.id} className="rounded-lg border border-[#e4e8df] p-3">
+                      <div className="grid gap-3 sm:grid-cols-[6.5rem_1fr]">
+                        <div className="aspect-square overflow-hidden rounded-md bg-[#e9eee5]">
+                          {photo.imageUrl ? (
+                            <img className="h-full w-full object-cover" src={photo.imageUrl} alt={title} />
+                          ) : (
+                            <span className="flex h-full items-center justify-center text-xs text-[#52616b]">
+                              No preview
+                            </span>
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="min-w-0">
+                              <h3 className="truncate font-bold text-ink" title={title}>
+                                {title}
+                              </h3>
+                              <p className="mt-1 text-sm text-[#52616b]">
+                                {photo.category || "Uncategorized"} - {photo.likeCount} like{photo.likeCount === 1 ? "" : "s"} -{" "}
+                                {photo.active ? "Visible" : "Hidden"}
+                              </p>
+                              {photo.description ? (
+                                <p className="mt-2 line-clamp-2 text-sm leading-6 text-[#52616b]">{photo.description}</p>
+                              ) : null}
+                            </div>
+                            <div className="flex shrink-0 flex-wrap gap-2 sm:justify-end">
+                              <Button type="button" variant="secondary" onClick={() => togglePortfolioActive(photo)}>
+                                {photo.active ? <EyeOff size={16} /> : <Eye size={16} />}
+                                {photo.active ? "Hide" : "Show"}
+                              </Button>
+                              <Button type="button" variant="secondary" onClick={() => deletePortfolioPhoto(photo)}>
+                                <Trash2 size={16} /> Delete
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })}
+                {!portfolioLoading && portfolioPhotos.length === 0 ? (
+                  <p className="rounded-lg border border-dashed border-[#d8ded3] p-6 text-center text-[#52616b]">
+                    No portfolio photos yet. Upload a few favorites to show on the public portfolio.
+                  </p>
+                ) : null}
+              </div>
+            </section>
+
             <section className="rounded-lg bg-white p-5 shadow-sm">
               <div className="mb-4 flex items-center gap-2">
                 <ClipboardList className="text-leaf" size={20} />
@@ -647,6 +1005,11 @@ export default function AdminDashboardPage() {
                           </p>
                           {!pastImageRequest && order.preferred_date ? (
                             <p className="mt-1 text-sm text-[#52616b]">Preferred date {formatDate(order.preferred_date)}</p>
+                          ) : null}
+                          {!pastImageRequest && order.preferred_time ? (
+                            <p className="mt-1 text-sm text-[#52616b]">
+                              Preferred time {formatPreferredTime(order.preferred_time)}
+                            </p>
                           ) : null}
                           {!pastImageRequest && order.location ? (
                             <p className="mt-1 text-sm text-[#52616b]">{order.location}</p>
@@ -809,6 +1172,55 @@ function uploadPhotoBatch({
   return new Promise<{ ok: boolean; payload: { count?: number; error?: string } }>((resolve) => {
     const xhr = new XMLHttpRequest();
     xhr.open("POST", `/api/admin/galleries/${galleryId}/photos`);
+    xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+
+    xhr.upload.onprogress = (progressEvent) => {
+      if (progressEvent.lengthComputable) onProgress(progressEvent.loaded);
+    };
+
+    xhr.onload = () => {
+      let payload: { count?: number; error?: string } = {};
+      try {
+        payload = JSON.parse(xhr.responseText);
+      } catch {
+        payload = {};
+      }
+
+      resolve({ ok: xhr.status >= 200 && xhr.status < 300, payload });
+    };
+
+    xhr.onerror = () => resolve({ ok: false, payload: { error: "Upload failed. Check your connection and try again." } });
+    xhr.send(body);
+  });
+}
+
+function uploadPortfolioPhotoBatch({
+  batch,
+  token,
+  title,
+  category,
+  description,
+  applyDetails,
+  onProgress
+}: {
+  batch: File[];
+  token: string;
+  title: string;
+  category: string;
+  description: string;
+  applyDetails: boolean;
+  onProgress: (loadedBytes: number) => void;
+}) {
+  const body = new FormData();
+  batch.forEach((file) => body.append("photos", file));
+  body.append("title", title);
+  body.append("category", category);
+  body.append("description", description);
+  body.append("applyDetails", String(applyDetails));
+
+  return new Promise<{ ok: boolean; payload: { count?: number; error?: string } }>((resolve) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", "/api/admin/portfolio");
     xhr.setRequestHeader("Authorization", `Bearer ${token}`);
 
     xhr.upload.onprogress = (progressEvent) => {
