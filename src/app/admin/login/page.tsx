@@ -2,8 +2,8 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Camera } from "lucide-react";
-import { Button } from "@/components/Button";
+import { Camera, Home } from "lucide-react";
+import { Button, ButtonLink } from "@/components/Button";
 import { Field } from "@/components/Field";
 
 export default function AdminLoginPage() {
@@ -42,6 +42,9 @@ export default function AdminLoginPage() {
     <main className="flex min-h-screen items-center justify-center px-5 py-12">
       <form onSubmit={handleSubmit} className="w-full max-w-md rounded-lg bg-white p-6 shadow-soft">
         <div className="mb-6">
+          <ButtonLink href="/" variant="secondary" className="mb-5">
+            <Home size={18} /> Main page
+          </ButtonLink>
           <Camera className="mb-4 text-leaf" />
           <h1 className="text-3xl font-bold text-ink">Admin login</h1>
           <p className="mt-2 text-[#52616b]">Sign in to create galleries and upload client photos.</p>

@@ -1,9 +1,9 @@
 "use client";
 
 import { ChangeEvent, DragEvent, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Camera, ClipboardList, Copy, Database, Eye, EyeOff, ImagePlus, LogOut, Trash2, Upload, X } from "lucide-react";
+import { Camera, ClipboardList, Copy, Database, Eye, EyeOff, Home, ImagePlus, LogOut, Trash2, Upload, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/Button";
+import { Button, ButtonLink } from "@/components/Button";
 import { Field } from "@/components/Field";
 import { formatDate } from "@/lib/format";
 import type { Gallery, PortfolioPhotoWithUrl } from "@/types/gallery";
@@ -593,9 +593,14 @@ export default function AdminDashboardPage() {
             <p className="text-sm font-semibold text-leaf">Creative Images by JC</p>
             <h1 className="text-3xl font-bold text-ink">Admin dashboard</h1>
           </div>
-          <Button type="button" variant="secondary" onClick={signOut}>
-            <LogOut size={18} /> Sign out
-          </Button>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <ButtonLink href="/" variant="secondary">
+              <Home size={18} /> Main page
+            </ButtonLink>
+            <Button type="button" variant="secondary" onClick={signOut}>
+              <LogOut size={18} /> Sign out
+            </Button>
+          </div>
         </header>
 
         <div className="mb-6 rounded-lg border border-petal bg-white p-4 text-sm leading-6 text-[#52616b]">

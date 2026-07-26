@@ -1,4 +1,4 @@
-import { Camera, Heart } from "lucide-react";
+import { Camera, Heart, Home } from "lucide-react";
 import { ButtonLink } from "@/components/Button";
 import { PortfolioViewer } from "@/components/PortfolioViewer";
 import { getPortfolioPhotos } from "@/lib/portfolio";
@@ -22,9 +22,14 @@ export default async function PortfolioPage() {
                 A public look at favorite moments, portraits, celebrations, and quiet details captured by Jewell.
               </p>
             </div>
-            <ButtonLink href="/#contact" className="min-h-12 bg-[#9b5675] hover:bg-[#844865]">
-              <Heart size={18} /> Let&apos;s Plan Your Session
-            </ButtonLink>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <ButtonLink href="/" variant="secondary" className="min-h-12 border-[#b6879d] text-[#844865] hover:bg-[#fff6f9]">
+                <Home size={18} /> Main page
+              </ButtonLink>
+              <ButtonLink href="/#contact" className="min-h-12 bg-[#9b5675] hover:bg-[#844865]">
+                <Heart size={18} /> Let&apos;s Plan Your Session
+              </ButtonLink>
+            </div>
           </div>
         </header>
 
